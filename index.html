@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>App Financeiro - Igreja</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#FFD700">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FFD700">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
         :root {
             --primary: #FFD700; --primary-dark: #D4AF37;
@@ -27,7 +29,7 @@
         .tab-content.active { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Elementos UI */
+        /* UI */
         select, input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; background: var(--white); }
         .summary-cards { display: grid; gap: 15px; margin-bottom: 20px; }
         .card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--primary); }
@@ -45,7 +47,7 @@
         .btn:active { transform: translateY(4px); box-shadow: none; }
         .btn-pdf { grid-column: span 2; background: var(--text-dark); color: var(--white); box-shadow: 0 4px 0 #1a252f; }
         
-        /* Listas (Transações e Membros) */
+        /* Listas */
         .list-item { background: var(--white); padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); }
         .list-item .info h4 { margin-bottom: 3px; }
         .list-item .info p { font-size: 0.8rem; color: var(--text-light); }
@@ -53,7 +55,12 @@
         .val-saida { color: var(--danger); font-weight: bold; }
         .tag-filial { background: #eee; padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; color: #555; }
 
-        /* Navegação Inferior */
+        /* Filtros de Tempo */
+        .time-filters { display: flex; gap: 10px; margin-bottom: 15px; }
+        .time-btn { flex: 1; padding: 8px; border: none; border-radius: 8px; background-color: #ddd; color: var(--text-dark); font-weight: bold; cursor: pointer; }
+        .time-btn.active { background-color: var(--text-dark); color: var(--white); }
+
+        /* Menu Inferior */
         .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--white); display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); border-radius: 20px 20px 0 0; z-index: 100; }
         .nav-item { display: flex; flex-direction: column; align-items: center; color: var(--text-light); font-size: 0.75rem; text-decoration: none; cursor: pointer; }
         .nav-item.active { color: var(--primary-dark); font-weight: bold; }
@@ -61,12 +68,10 @@
 
         /* Modal */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; }
-        .modal { background: var(--white); padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; }
+        .modal { background: var(--white); padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; }
         .modal h2 { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
@@ -76,12 +81,10 @@
     </header>
 
     <div class="container">
-        
         <!-- ================= ABA 1: DASHBOARD ================= -->
         <div id="tab-inicio" class="tab-content active">
             <select id="filialFilter">
                 <option value="todas">🏢 Visão Global (Todas as Filiais)</option>
-                <!-- Preenchido via Firebase -->
             </select>
 
             <div class="action-buttons">
@@ -107,6 +110,18 @@
                 </div>
             </div>
 
+            <!-- Gráfico de Barras -->
+            <div class="chart-container">
+                <h3>Evolução de Entradas</h3>
+                <div class="time-filters">
+                    <button class="time-btn" onclick="mudarTempo('semana', this)">Semana</button>
+                    <button class="time-btn active" onclick="mudarTempo('mes', this)">Mês</button>
+                    <button class="time-btn" onclick="mudarTempo('ano', this)">Ano</button>
+                </div>
+                <canvas id="barChart"></canvas>
+            </div>
+
+            <!-- Gráfico de Pizza -->
             <div class="chart-container">
                 <h3>Distribuição Financeira</h3>
                 <canvas id="pieChart"></canvas>
@@ -143,18 +158,28 @@
                 </form>
             </div>
 
-            <div class="card" style="border-left: none;">
+            <div class="card" style="border-left: none; margin-bottom: 15px;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Gestão de Congregações</h3>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                     <input type="text" id="novaFilialNome" placeholder="Nome da Filial" style="margin-bottom: 0;">
                     <button class="btn" onclick="adicionarFilial()" id="btnAddFilial">Adicionar</button>
                 </div>
-                <div id="listaFiliaisAjustes">
-                    <!-- Lista de filiais gerada pelo Firebase -->
+                <div id="listaFiliaisAjustes"></div>
+            </div>
+
+            <div class="card" style="border-left: none;">
+                <h3 style="margin-bottom: 15px; color: var(--text-dark);">Gestão de Categorias</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <input type="text" id="novaCatNome" placeholder="Nova Categoria" style="margin-bottom: 0;">
+                    <select id="novaCatTipo" style="margin-bottom: 0;">
+                        <option value="entrada">Entrada</option>
+                        <option value="saida">Saída</option>
+                    </select>
                 </div>
+                <button class="btn" onclick="adicionarCategoria()" id="btnAddCat" style="width:100%; margin-bottom: 15px;">Adicionar Categoria</button>
+                <div id="listaCategoriasAjustes"></div>
             </div>
         </div>
-
     </div>
 
     <!-- NAVEGAÇÃO INFERIOR -->
@@ -179,13 +204,19 @@
                     <label>Categoria</label>
                     <select id="formCategoria" required></select>
                 </div>
+                <div class="form-group" id="grupoMembro" style="display:none;">
+                    <label>Dizimante / Membro Vinculado</label>
+                    <select id="formMembroRef">
+                        <option value="">Nenhum (Anônimo)</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>Valor (R$)</label>
                     <input type="number" id="formValor" step="0.01" required placeholder="Ex: 150.00">
                 </div>
                 <div class="form-group">
-                    <label>Dizimante / Observação</label>
-                    <input type="text" id="formObs" placeholder="Nome da pessoa ou detalhe">
+                    <label>Observação Extra (Opcional)</label>
+                    <input type="text" id="formObs" placeholder="Detalhe do lançamento">
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
                     <button type="button" class="btn" style="background: #ecf0f1; box-shadow: none; flex: 1;" onclick="fecharModais()">Cancelar</button>
@@ -237,111 +268,146 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // VARIÁVEIS GLOBAIS
         let todasTransacoes = [];
-        let dicionarioFiliais = {}; // Para mostrar o nome da filial em vez do ID
+        let dicionarioFiliais = {};
+        let listaMembrosGlobais = [];
+        let catEntradas = [];
+        let catSaidas = [];
+        
         let pieChartInst = null;
+        let barChartInst = null;
+        let filtroTempoGlobal = 'mes'; 
+
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        function initChart() {
+        // INICIALIZAR GRÁFICOS
+        function initCharts() {
+            // Pizza
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             pieChartInst = new Chart(ctxPie, {
                 type: 'doughnut',
-                data: { labels: ['Dízimos', 'Ofertas', 'Despesas', 'Outros'], datasets: [{ data: [0,0,0,0], backgroundColor: ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6'], borderWidth: 0 }] },
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6', '#3498db', '#9b59b6'], borderWidth: 0 }] },
                 options: { responsive: true, cutout: '65%' }
             });
-        }
-        initChart();
 
-        // 1. LEITURA E GESTÃO DINÂMICA DE FILIAIS
+            // Barras (Entradas)
+            const ctxBar = document.getElementById('barChart').getContext('2d');
+            barChartInst = new Chart(ctxBar, {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Entradas R$', data: [], backgroundColor: '#2ECC71', borderRadius: 5 }] },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+        }
+        initCharts();
+
+        // 1. FILIAIS
         onSnapshot(query(collection(db, "filiais")), (snapshot) => {
             let optionsFiltro = '<option value="todas">🏢 Visão Global (Todas as Filiais)</option>';
             let optionsForm = '';
-            let listaAdminHTML = '';
+            let htmlAdmin = '';
             dicionarioFiliais = {};
 
             snapshot.forEach((docSnap) => {
                 const f = docSnap.data();
-                const fId = docSnap.id;
-                dicionarioFiliais[fId] = f.nome;
-                
-                optionsFiltro += `<option value="${fId}">📍 ${f.nome}</option>`;
-                optionsForm += `<option value="${fId}">${f.nome}</option>`;
-                
-                listaAdminHTML += `
-                    <div class="list-item" style="padding: 10px; margin-bottom: 5px; box-shadow: none; border: 1px solid #eee;">
+                dicionarioFiliais[docSnap.id] = f.nome;
+                optionsFiltro += `<option value="${docSnap.id}">📍 ${f.nome}</option>`;
+                optionsForm += `<option value="${docSnap.id}">${f.nome}</option>`;
+                htmlAdmin += `<div class="list-item" style="padding: 10px; margin-bottom: 5px; box-shadow: none; border: 1px solid #eee;">
                         <span>${f.nome}</span>
-                        <button onclick="excluirFilial('${fId}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
+                        <button onclick="excluirItem('filiais', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
                     </div>`;
             });
-
             document.getElementById('filialFilter').innerHTML = optionsFiltro;
-            document.getElementById('formFilial').innerHTML = optionsForm || '<option value="">Cadastre uma filial primeiro</option>';
-            document.getElementById('formMembroFilial').innerHTML = optionsForm || '<option value="">Cadastre uma filial primeiro</option>';
-            document.getElementById('listaFiliaisAjustes').innerHTML = listaAdminHTML || '<p style="font-size: 0.8rem; color: #777;">Nenhuma congregação cadastrada.</p>';
-            
-            atualizarTela(); // Atualiza a tela com os novos nomes
+            document.getElementById('formFilial').innerHTML = optionsForm;
+            document.getElementById('formMembroFilial').innerHTML = optionsForm;
+            document.getElementById('listaFiliaisAjustes').innerHTML = htmlAdmin;
+            atualizarTela();
         });
 
-   window.adicionarFilial = async function() {
-    try {
-        const input = document.getElementById('novaFilialNome');
-        if(!input.value) {
-            alert('Digite o nome da filial!');
-            return;
-        }
-        
-        // Muda o texto do botão para sabermos que ele clicou
-        document.getElementById('btnAddFilial').innerText = 'Salvando...';
-        
-        // Tenta salvar no Firebase
-        await addDoc(collection(db, "filiais"), { nome: input.value });
-        
-        // Limpa o campo e volta o botão ao normal
-        input.value = '';
-        document.getElementById('btnAddFilial').innerText = 'Adicionar';
-        alert('✅ Congregação adicionada com sucesso!');
-        
-    } catch (error) {
-        console.error(error);
-        alert('❌ Erro do Firebase ao salvar: ' + error.message);
-        document.getElementById('btnAddFilial').innerText = 'Adicionar';
-    }
-}
+        // 2. CATEGORIAS (Dinâmicas)
+        onSnapshot(query(collection(db, "categorias")), (snapshot) => {
+            catEntradas = [];
+            catSaidas = [];
+            let htmlAdmin = '';
+            
+            snapshot.forEach((docSnap) => {
+                const c = docSnap.data();
+                if(c.tipo === 'entrada') catEntradas.push(c.nome); else catSaidas.push(c.nome);
+                
+                const badge = c.tipo === 'entrada' ? '<span class="val-entrada">Entrada</span>' : '<span class="val-saida">Saída</span>';
+                htmlAdmin += `<div class="list-item" style="padding: 10px; margin-bottom: 5px; box-shadow: none; border: 1px solid #eee;">
+                        <span>${c.nome} ${badge}</span>
+                        <button onclick="excluirItem('categorias', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
+                    </div>`;
+            });
+            
+            // Fallbacks caso não haja categorias criadas
+            if(catEntradas.length === 0) catEntradas = ['Dízimo', 'Oferta'];
+            if(catSaidas.length === 0) catSaidas = ['Manutenção'];
+            
+            document.getElementById('listaCategoriasAjustes').innerHTML = htmlAdmin || '<p style="font-size: 0.8rem; color: #777;">Nenhuma categoria criada.</p>';
+        });
 
-        // 2. LEITURA DE TRANSAÇÕES
+        // 3. MEMBROS
+        onSnapshot(query(collection(db, "membros")), (snapshot) => {
+            listaMembrosGlobais = [];
+            let htmlMembros = '';
+            let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
+
+            snapshot.forEach((docSnap) => {
+                const m = docSnap.data();
+                listaMembrosGlobais.push({id: docSnap.id, nome: m.nome});
+                optionsMembros += `<option value="${m.nome}">${m.nome}</option>`;
+                
+                htmlMembros += `<div class="list-item">
+                        <div class="info">
+                            <h4>${m.nome}</h4>
+                            <p>${m.telefone || 'Sem telefone'} • <span class="tag-filial">${dicionarioFiliais[m.filial_id] || ''}</span></p>
+                        </div>
+                    </div>`;
+            });
+            document.getElementById('listaMembros').innerHTML = htmlMembros || '<p style="text-align:center;">Nenhum membro cadastrado.</p>';
+            document.getElementById('formMembroRef').innerHTML = optionsMembros;
+        });
+
+        // 4. TRANSAÇÕES
         onSnapshot(query(collection(db, "transacoes")), (snapshot) => {
             todasTransacoes = [];
-            snapshot.forEach((doc) => todasTransacoes.push({ id: doc.id, ...doc.data() }));
+            snapshot.forEach((docSnap) => todasTransacoes.push({ id: docSnap.id, ...docSnap.data() }));
             todasTransacoes.sort((a, b) => new Date(b.data) - new Date(a.data));
             atualizarTela();
         });
 
+        // FUNÇÃO CENTRAL: ATUALIZAR INTERFACE
         function atualizarTela() {
             const filtroAtual = document.getElementById('filialFilter').value;
             let filtrados = filtroAtual === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroAtual);
-            let ent = 0, sai = 0, diz = 0, ofe = 0, des = 0, out = 0;
+            
+            let ent = 0, sai = 0;
+            let mapaCategorias = {}; // Para o gráfico de pizza
             let htmlLista = '';
 
             filtrados.forEach(t => {
                 const val = parseFloat(t.valor);
-                if (t.tipo === 'entrada') {
-                    ent += val;
-                    if(t.categoria === 'Dízimo') diz += val; else if(t.categoria === 'Oferta') ofe += val; else out += val;
-                } else {
-                    sai += val;
-                    if(t.categoria === 'Manutenção') des += val; else out += val;
-                }
+                
+                // Soma Categorias para a Pizza
+                if(!mapaCategorias[t.categoria]) mapaCategorias[t.categoria] = 0;
+                mapaCategorias[t.categoria] += val;
 
+                if (t.tipo === 'entrada') ent += val; else sai += val;
+
+                // Montar Histórico
                 const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
                 const cor = t.tipo === 'entrada' ? 'val-entrada' : 'val-saida';
                 const sinal = t.tipo === 'entrada' ? '+' : '-';
-                const filialNome = dicionarioFiliais[t.filial_id] || 'Desconhecida';
+                const membroStr = t.membro ? `👤 ${t.membro}` : '';
                 
                 htmlLista += `
                     <div class="list-item">
                         <div class="info">
-                            <h4>${t.categoria} <span class="tag-filial">${filialNome}</span></h4>
-                            <p>${dataF} • ${t.obs || 'Sem obs'}</p>
+                            <h4>${t.categoria} <span class="tag-filial">${dicionarioFiliais[t.filial_id] || ''}</span></h4>
+                            <p>${dataF} • ${membroStr} ${t.obs ? '- '+t.obs : ''}</p>
                         </div>
                         <div class="${cor}">${sinal} ${formatarMoeda(val)}</div>
                     </div>`;
@@ -350,31 +416,65 @@
             document.getElementById('entradasTotal').innerText = formatarMoeda(ent);
             document.getElementById('saidasTotal').innerText = formatarMoeda(sai);
             document.getElementById('saldoTotal').innerText = formatarMoeda(ent - sai);
-            pieChartInst.data.datasets[0].data = [diz, ofe, des, out];
-            pieChartInst.update();
             document.getElementById('listaTransacoes').innerHTML = htmlLista || '<p style="text-align:center;">Nenhum lançamento.</p>';
+
+            // Atualiza Pizza
+            pieChartInst.data.labels = Object.keys(mapaCategorias);
+            pieChartInst.data.datasets[0].data = Object.values(mapaCategorias);
+            pieChartInst.update();
+
+            // Atualiza Barras
+            atualizarGraficoBarras(filtrados);
         }
 
+        // LÓGICA DO GRÁFICO DE BARRAS (Filtros Temporais)
+        function atualizarGraficoBarras(dados) {
+            let dadosEntradas = dados.filter(d => d.tipo === 'entrada');
+            let mapaAgrupado = {};
+            const hoje = new Date();
+
+            dadosEntradas.forEach(t => {
+                const dataTransacao = new Date(t.data + "T00:00:00");
+                const val = parseFloat(t.valor);
+                
+                if (filtroTempoGlobal === 'semana') {
+                    // Últimos 7 dias
+                    const diffDias = Math.floor((hoje - dataTransacao) / (1000 * 60 * 60 * 24));
+                    if (diffDias <= 7 && diffDias >= 0) {
+                        const chave = dataTransacao.toLocaleDateString('pt-BR', {weekday: 'short'});
+                        mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
+                    }
+                } 
+                else if (filtroTempoGlobal === 'mes') {
+                    // Mês atual
+                    if (dataTransacao.getMonth() === hoje.getMonth() && dataTransacao.getFullYear() === hoje.getFullYear()) {
+                        const chave = dataTransacao.getDate().toString();
+                        mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
+                    }
+                } 
+                else if (filtroTempoGlobal === 'ano') {
+                    // Ano atual
+                    if (dataTransacao.getFullYear() === hoje.getFullYear()) {
+                        const chave = dataTransacao.toLocaleDateString('pt-BR', {month: 'short'});
+                        mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
+                    }
+                }
+            });
+
+            barChartInst.data.labels = Object.keys(mapaAgrupado);
+            barChartInst.data.datasets[0].data = Object.values(mapaAgrupado);
+            barChartInst.update();
+        }
+
+        window.mudarTempo = function(periodo, btnElement) {
+            filtroTempoGlobal = periodo;
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            btnElement.classList.add('active');
+            atualizarTela();
+        }
         document.getElementById('filialFilter').addEventListener('change', atualizarTela);
 
-        // 3. LEITURA DE MEMBROS
-        onSnapshot(query(collection(db, "membros")), (snapshot) => {
-            let htmlMembros = '';
-            snapshot.forEach((doc) => {
-                const m = doc.data();
-                const filialNome = dicionarioFiliais[m.filial_id] || 'Desconhecida';
-                htmlMembros += `
-                    <div class="list-item">
-                        <div class="info">
-                            <h4>${m.nome}</h4>
-                            <p>${m.telefone || 'Sem telefone'} • <span class="tag-filial">${filialNome}</span></p>
-                        </div>
-                    </div>`;
-            });
-            document.getElementById('listaMembros').innerHTML = htmlMembros || '<p style="text-align:center;">Nenhum membro cadastrado.</p>';
-        });
-
-        // 4. LEITURA DE CONFIGURAÇÕES GERAIS
+        // 5. CONFIGURAÇÕES GERAIS
         onSnapshot(doc(db, "configuracoes", "geral"), (docSnap) => {
             if (docSnap.exists()) {
                 const dados = docSnap.data();
@@ -383,7 +483,39 @@
             }
         });
 
-        // MODAIS
+        // AÇÕES DE CRUD (Adicionar / Excluir)
+        window.adicionarFilial = async function() {
+            try {
+                const input = document.getElementById('novaFilialNome');
+                if(!input.value) return alert('Digite o nome da filial!');
+                document.getElementById('btnAddFilial').innerText = '...';
+                await addDoc(collection(db, "filiais"), { nome: input.value });
+                input.value = '';
+                document.getElementById('btnAddFilial').innerText = 'Adicionar';
+            } catch(e) { alert("Erro ao salvar filial."); }
+        }
+
+        window.adicionarCategoria = async function() {
+            try {
+                const input = document.getElementById('novaCatNome');
+                if(!input.value) return alert('Digite o nome!');
+                document.getElementById('btnAddCat').innerText = '...';
+                await addDoc(collection(db, "categorias"), { 
+                    nome: input.value, 
+                    tipo: document.getElementById('novaCatTipo').value 
+                });
+                input.value = '';
+                document.getElementById('btnAddCat').innerText = 'Adicionar Categoria';
+            } catch(e) { alert("Erro ao salvar categoria."); }
+        }
+
+        window.excluirItem = async function(colecao, id) {
+            if(confirm('Tem certeza que deseja excluir?')) {
+                await deleteDoc(doc(db, colecao, id));
+            }
+        }
+
+        // MODAIS E FORMULÁRIOS
         window.fecharModais = function() {
             document.getElementById('transacaoModal').style.display = 'none';
             document.getElementById('membroModal').style.display = 'none';
@@ -392,23 +524,24 @@
         }
 
         window.abrirModalTransacao = function(tipo) {
-            if(Object.keys(dicionarioFiliais).length === 0) {
-                alert("Por favor, crie uma Filial na aba Ajustes primeiro.");
-                return;
-            }
+            if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
+            
             document.getElementById('transacaoModal').style.display = 'flex';
             document.getElementById('formTipo').value = tipo;
             document.getElementById('modalTitle').innerText = tipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída';
-            document.getElementById('formCategoria').innerHTML = tipo === 'entrada' 
-                ? '<option>Dízimo</option><option>Oferta</option><option>Outros</option>' 
-                : '<option>Manutenção</option><option>Combustível</option><option>Outros</option>';
+            
+            // Popula Categorias baseadas no tipo
+            let catHTML = '';
+            const arrayCat = tipo === 'entrada' ? catEntradas : catSaidas;
+            arrayCat.forEach(c => catHTML += `<option value="${c}">${c}</option>`);
+            document.getElementById('formCategoria').innerHTML = catHTML;
+
+            // Exibe campo de membro apenas para entradas
+            document.getElementById('grupoMembro').style.display = tipo === 'entrada' ? 'block' : 'none';
         }
 
         window.abrirModalMembro = function() {
-            if(Object.keys(dicionarioFiliais).length === 0) {
-                alert("Por favor, crie uma Filial na aba Ajustes primeiro.");
-                return;
-            }
+            if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
             document.getElementById('membroModal').style.display = 'flex';
         }
 
@@ -417,14 +550,22 @@
             document.getElementById('btnSalvarTransacao').innerText = 'Salvando...';
             const h = new Date();
             const dataHoje = `${h.getFullYear()}-${String(h.getMonth()+1).padStart(2,'0')}-${String(h.getDate()).padStart(2,'0')}`;
-            await addDoc(collection(db, "transacoes"), {
+            
+            const transacaoObj = {
                 tipo: document.getElementById('formTipo').value,
                 filial_id: document.getElementById('formFilial').value,
                 categoria: document.getElementById('formCategoria').value,
                 valor: parseFloat(document.getElementById('formValor').value),
                 obs: document.getElementById('formObs').value,
                 data: dataHoje
-            });
+            };
+
+            // Se for entrada, atrela o membro (se selecionado)
+            if(transacaoObj.tipo === 'entrada') {
+                transacaoObj.membro = document.getElementById('formMembroRef').value;
+            }
+
+            await addDoc(collection(db, "transacoes"), transacaoObj);
             document.getElementById('btnSalvarTransacao').innerText = 'Salvar';
             fecharModais();
         });
@@ -444,14 +585,12 @@
         document.getElementById('formAjustes').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
-            await setDoc(doc(db, "configuracoes", "geral"), {
-                nomeIgreja: document.getElementById('configNomeIgreja').value
-            }, { merge: true });
+            await setDoc(doc(db, "configuracoes", "geral"), { nomeIgreja: document.getElementById('configNomeIgreja').value }, { merge: true });
             document.getElementById('btnSalvarAjustes').innerText = 'Salvar Cabeçalho';
             alert('Cabeçalho atualizado com sucesso!');
         });
 
-        // NAVEGAÇÃO
+        // NAVEGAÇÃO DE ABAS
         const navItems = document.querySelectorAll('.nav-item');
         const tabContents = document.querySelectorAll('.tab-content');
         navItems.forEach(item => {
@@ -463,81 +602,67 @@
                 document.getElementById(item.getAttribute('data-target')).classList.add('active');
             });
         });
-// ATIVAR PWA
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-}
 
-        // GERAÇÃO DE RELATÓRIO PDF
-window.gerarPDF = function() {
-    // Inicializa o jsPDF
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+        // GERAÇÃO DE PDF
+        window.gerarPDF = function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const nomeIgreja = document.getElementById('configNomeIgreja').value || 'Igreja Evangélica';
+            const filtroAtual = document.getElementById('filialFilter').value;
+            const nomeFilial = filtroAtual === 'todas' ? 'Todas as Congregações' : (dicionarioFiliais[filtroAtual] || '');
+            
+            let filtrados = filtroAtual === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroAtual);
+            let ent = 0, sai = 0;
+            
+            const corpoTabela = filtrados.map(t => {
+                const val = parseFloat(t.valor);
+                t.tipo === 'entrada' ? ent += val : sai += val;
+                const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
+                const sinal = t.tipo === 'entrada' ? '+' : '-';
+                const membroObs = (t.membro ? t.membro + " " : "") + (t.obs || '');
+                return [
+                    dataF, 
+                    t.categoria, 
+                    membroObs || '-', 
+                    dicionarioFiliais[t.filial_id] || '-', 
+                    `${sinal} R$ ${val.toFixed(2)}`
+                ];
+            });
 
-    // Dados Globais
-    const nomeIgreja = document.getElementById('configNomeIgreja').value || 'Igreja Evangélica';
-    const filtroAtual = document.getElementById('filialFilter').value;
-    const nomeFilial = filtroAtual === 'todas' ? 'Todas as Congregações' : (dicionarioFiliais[filtroAtual] || '');
-    
-    // Filtra e prepara os dados
-    let filtrados = filtroAtual === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroAtual);
-    let ent = 0, sai = 0;
-    
-    const corpoTabela = filtrados.map(t => {
-        const val = parseFloat(t.valor);
-        t.tipo === 'entrada' ? ent += val : sai += val;
-        const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
-        const sinal = t.tipo === 'entrada' ? '+' : '-';
-        return [
-            dataF, 
-            t.categoria, 
-            t.obs || '-', 
-            dicionarioFiliais[t.filial_id] || '-', 
-            `${sinal} R$ ${val.toFixed(2)}`
-        ];
-    });
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.text(nomeIgreja, 14, 20);
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Relatório Financeiro: ${nomeFilial}`, 14, 28);
+            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 34);
 
-    // Cabeçalho do Documento
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.text(nomeIgreja, 14, 20);
-    
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Relatório Financeiro: ${nomeFilial}`, 14, 28);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 34);
+            doc.autoTable({
+                startY: 40,
+                head: [['Data', 'Categoria', 'Membro / Obs', 'Filial', 'Valor']],
+                body: corpoTabela,
+                theme: 'striped',
+                headStyles: { fillColor: [212, 175, 55] },
+                styles: { fontSize: 10 },
+                columnStyles: { 4: { halign: 'right' } }
+            });
 
-    // Gerar Tabela Automática
-    doc.autoTable({
-        startY: 40,
-        head: [['Data', 'Categoria', 'Dizimante/Obs', 'Filial', 'Valor']],
-        body: corpoTabela,
-        theme: 'striped',
-        headStyles: { fillColor: [212, 175, 55] }, // Cor Amarelo Escuro
-        styles: { fontSize: 10 },
-        columnStyles: { 4: { halign: 'right' } }
-    });
+            const finalY = doc.lastAutoTable.finalY || 40;
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 14, finalY + 10);
+            doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 14, finalY + 18);
+            doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 14, finalY + 26);
+            doc.setLineWidth(0.5);
+            doc.line(70, finalY + 55, 140, finalY + 55);
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text("Assinatura do Tesoureiro", 105, finalY + 62, { align: 'center' });
+            doc.save(`Relatorio_${nomeFilial.replace(/ /g, '_')}.pdf`);
+        }
 
-    // Posição Y após a tabela
-    const finalY = doc.lastAutoTable.finalY || 40;
-
-    // Resumo de Saldos
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 14, finalY + 10);
-    doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 14, finalY + 18);
-    doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 14, finalY + 26);
-
-    // Linha de Assinatura do Tesoureiro
-    doc.setLineWidth(0.5);
-    doc.line(70, finalY + 55, 140, finalY + 55);
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.text("Assinatura do Tesoureiro / Responsável", 105, finalY + 62, { align: 'center' });
-
-    // Salva o arquivo no dispositivo
-    doc.save(`Relatorio_${nomeFilial.replace(/ /g, '_')}.pdf`);
-}
+        // ATIVAR PWA
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     </script>
 </body>
 </html>

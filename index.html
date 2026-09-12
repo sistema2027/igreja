@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>App Financeiro - Igreja</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FFD700">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #FFD700; --primary-dark: #D4AF37;
+            --bg-color: #F4F7F6; --text-dark: #2C3E50;
+            --text-light: #7F8C8D; --white: #FFFFFF;
+            --success: #2ECC71; --danger: #E74C3C;
+            --shadow: 0 8px 15px rgba(0,0,0,0.05);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-dark); padding-bottom: 70px; }
+        
+        header { background-color: var(--white); padding: 15px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .container { padding: 15px; }
+        
+        /* Abas */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Elementos UI */
+        select, input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; background: var(--white); }
+        .summary-cards { display: grid; gap: 15px; margin-bottom: 20px; }
+        .card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--primary); }
+        .card.success { border-left-color: var(--success); }
+        .card.danger { border-left-color: var(--danger); }
+        .card h3 { font-size: 0.85rem; color: var(--text-light); text-transform: uppercase; margin-bottom: 5px; }
+        .card .amount { font-size: 1.6rem; font-weight: bold; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        
+        .chart-container { background: var(--white); padding: 15px; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .chart-container h3 { font-size: 1rem; margin-bottom: 15px; color: var(--text-dark); text-align: center; }
+        
+        .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; background: var(--primary); color: var(--text-dark); cursor: pointer; box-shadow: 0 4px 0 var(--primary-dark); }
+        .btn:active { transform: translateY(4px); box-shadow: none; }
+        .btn-pdf { grid-column: span 2; background: var(--text-dark); color: var(--white); box-shadow: 0 4px 0 #1a252f; }
+        
+        /* Listas (Transações e Membros) */
+        .list-item { background: var(--white); padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); }
+        .list-item .info h4 { margin-bottom: 3px; }
+        .list-item .info p { font-size: 0.8rem; color: var(--text-light); }
+        .val-entrada { color: var(--success); font-weight: bold; }
+        .val-saida { color: var(--danger); font-weight: bold; }
+        .tag-filial { background: #eee; padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; color: #555; }
+
+        /* Navegação Inferior */
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--white); display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); border-radius: 20px 20px 0 0; z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: var(--text-light); font-size: 0.75rem; text-decoration: none; cursor: pointer; }
+        .nav-item.active { color: var(--primary-dark); font-weight: bold; }
+        .nav-item i { font-size: 1.2rem; margin-bottom: 3px; }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; }
+        .modal { background: var(--white); padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; }
+        .modal h2 { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 id="appTitle" style="font-size: 1.2rem;">Carregando...</h1>
+        <div style="width: 35px; height: 35px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">D</div>
+    </header>
+
+    <div class="container">
+        
+        <!-- ================= ABA 1: DASHBOARD ================= -->
+        <div id="tab-inicio" class="tab-content active">
+            <select id="filialFilter">
+                <option value="todas">🏢 Visão Global (Todas as Filiais)</option>
+                <!-- Preenchido via Firebase -->
+            </select>
+
+            <div class="action-buttons">
+                <button class="btn" onclick="abrirModalTransacao('entrada')"><i class="fas fa-arrow-down"></i> Entrada</button>
+                <button class="btn" onclick="abrirModalTransacao('saida')" style="background: #ecf0f1; box-shadow: 0 4px 0 #bdc3c7;"><i class="fas fa-arrow-up"></i> Saída</button>
+                <button class="btn btn-pdf" onclick="alert('Gerador de PDF será integrado aqui!')"><i class="fas fa-file-pdf"></i> Gerar Relatório PDF</button>
+            </div>
+
+            <div class="summary-cards">
+                <div class="card">
+                    <h3>Saldo Atual</h3>
+                    <div class="amount" id="saldoTotal">R$ 0,00</div>
+                </div>
+                <div class="grid-2">
+                    <div class="card success" style="padding: 15px;">
+                        <h3>Entradas</h3>
+                        <div class="amount" id="entradasTotal" style="font-size: 1.2rem;">R$ 0,00</div>
+                    </div>
+                    <div class="card danger" style="padding: 15px;">
+                        <h3>Saídas</h3>
+                        <div class="amount" id="saidasTotal" style="font-size: 1.2rem;">R$ 0,00</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Distribuição Financeira</h3>
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ================= ABA 2: LANÇAMENTOS ================= -->
+        <div id="tab-lancamentos" class="tab-content">
+            <h2 style="margin-bottom: 15px;">Histórico de Lançamentos</h2>
+            <div id="listaTransacoes"></div>
+        </div>
+
+        <!-- ================= ABA 3: MEMBROS ================= -->
+        <div id="tab-membros" class="tab-content">
+            <h2 style="margin-bottom: 15px;">Gestão de Membros</h2>
+            <button class="btn" style="width: 100%; margin-bottom: 15px;" onclick="abrirModalMembro()">
+                <i class="fas fa-user-plus"></i> Novo Membro
+            </button>
+            <div id="listaMembros"></div>
+        </div>
+
+        <!-- ================= ABA 4: AJUSTES ================= -->
+        <div id="tab-ajustes" class="tab-content">
+            <h2 style="margin-bottom: 15px;">Configurações</h2>
+            
+            <div class="card" style="border-left: none; margin-bottom: 15px;">
+                <h3 style="margin-bottom: 15px; color: var(--text-dark);">Dados Gerais</h3>
+                <form id="formAjustes">
+                    <div class="form-group">
+                        <label>Nome Oficial (Cabeçalho)</label>
+                        <input type="text" id="configNomeIgreja" placeholder="Ex: Igreja Evangélica Sede" required>
+                    </div>
+                    <button type="submit" class="btn" style="width: 100%;" id="btnSalvarAjustes">Salvar Cabeçalho</button>
+                </form>
+            </div>
+
+            <div class="card" style="border-left: none;">
+                <h3 style="margin-bottom: 15px; color: var(--text-dark);">Gestão de Congregações</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <input type="text" id="novaFilialNome" placeholder="Nome da Filial" style="margin-bottom: 0;">
+                    <button class="btn" onclick="adicionarFilial()" id="btnAddFilial">Adicionar</button>
+                </div>
+                <div id="listaFiliaisAjustes">
+                    <!-- Lista de filiais gerada pelo Firebase -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- NAVEGAÇÃO INFERIOR -->
+    <nav class="bottom-nav">
+        <a class="nav-item active" data-target="tab-inicio"><i class="fas fa-chart-pie"></i> Início</a>
+        <a class="nav-item" data-target="tab-lancamentos"><i class="fas fa-exchange-alt"></i> Lançamentos</a>
+        <a class="nav-item" data-target="tab-membros"><i class="fas fa-users"></i> Membros</a>
+        <a class="nav-item" data-target="tab-ajustes"><i class="fas fa-cog"></i> Ajustes</a>
+    </nav>
+
+    <!-- MODAL DE NOVA TRANSAÇÃO -->
+    <div class="modal-overlay" id="transacaoModal">
+        <div class="modal">
+            <h2 id="modalTitle">Novo Lançamento</h2>
+            <form id="formTransacao">
+                <input type="hidden" id="formTipo">
+                <div class="form-group">
+                    <label>Filial</label>
+                    <select id="formFilial" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select id="formCategoria" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Valor (R$)</label>
+                    <input type="number" id="formValor" step="0.01" required placeholder="Ex: 150.00">
+                </div>
+                <div class="form-group">
+                    <label>Dizimante / Observação</label>
+                    <input type="text" id="formObs" placeholder="Nome da pessoa ou detalhe">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="button" class="btn" style="background: #ecf0f1; box-shadow: none; flex: 1;" onclick="fecharModais()">Cancelar</button>
+                    <button type="submit" class="btn" style="flex: 1;" id="btnSalvarTransacao">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE NOVO MEMBRO -->
+    <div class="modal-overlay" id="membroModal">
+        <div class="modal">
+            <h2>Cadastrar Membro</h2>
+            <form id="formMembro">
+                <div class="form-group">
+                    <label>Nome Completo</label>
+                    <input type="text" id="formMembroNome" required placeholder="Ex: João da Silva">
+                </div>
+                <div class="form-group">
+                    <label>Congregação</label>
+                    <select id="formMembroFilial" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Telefone / Contato</label>
+                    <input type="text" id="formMembroTel" placeholder="(xx) xxxxx-xxxx">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="button" class="btn" style="background: #ecf0f1; box-shadow: none; flex: 1;" onclick="fecharModais()">Cancelar</button>
+                    <button type="submit" class="btn" style="flex: 1;" id="btnSalvarMembro">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SCRIPT PRINCIPAL -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAAs_xAn17BI0Fk_eZ7ZwMjEJx3wmkluWU",
+            authDomain: "igrejas-f3374.firebaseapp.com",
+            projectId: "igrejas-f3374",
+            storageBucket: "igrejas-f3374.firebasestorage.app",
+            messagingSenderId: "352244866945",
+            appId: "1:352244866945:web:fba3da46d2dd976829d280"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let todasTransacoes = [];
+        let dicionarioFiliais = {}; // Para mostrar o nome da filial em vez do ID
+        let pieChartInst = null;
+        const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        function initChart() {
+            const ctxPie = document.getElementById('pieChart').getContext('2d');
+            pieChartInst = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: { labels: ['Dízimos', 'Ofertas', 'Despesas', 'Outros'], datasets: [{ data: [0,0,0,0], backgroundColor: ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6'], borderWidth: 0 }] },
+                options: { responsive: true, cutout: '65%' }
+            });
+        }
+        initChart();
+
+        // 1. LEITURA E GESTÃO DINÂMICA DE FILIAIS
+        onSnapshot(query(collection(db, "filiais")), (snapshot) => {
+            let optionsFiltro = '<option value="todas">🏢 Visão Global (Todas as Filiais)</option>';
+            let optionsForm = '';
+            let listaAdminHTML = '';
+            dicionarioFiliais = {};
+
+            snapshot.forEach((docSnap) => {
+                const f = docSnap.data();
+                const fId = docSnap.id;
+                dicionarioFiliais[fId] = f.nome;
+                
+                optionsFiltro += `<option value="${fId}">📍 ${f.nome}</option>`;
+                optionsForm += `<option value="${fId}">${f.nome}</option>`;
+                
+                listaAdminHTML += `
+                    <div class="list-item" style="padding: 10px; margin-bottom: 5px; box-shadow: none; border: 1px solid #eee;">
+                        <span>${f.nome}</span>
+                        <button onclick="excluirFilial('${fId}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
+                    </div>`;
+            });
+
+            document.getElementById('filialFilter').innerHTML = optionsFiltro;
+            document.getElementById('formFilial').innerHTML = optionsForm || '<option value="">Cadastre uma filial primeiro</option>';
+            document.getElementById('formMembroFilial').innerHTML = optionsForm || '<option value="">Cadastre uma filial primeiro</option>';
+            document.getElementById('listaFiliaisAjustes').innerHTML = listaAdminHTML || '<p style="font-size: 0.8rem; color: #777;">Nenhuma congregação cadastrada.</p>';
+            
+            atualizarTela(); // Atualiza a tela com os novos nomes
+        });
+
+        window.adicionarFilial = async function() {
+            const input = document.getElementById('novaFilialNome');
+            if(!input.value) return alert('Digite o nome da filial!');
+            document.getElementById('btnAddFilial').innerText = '...';
+            await addDoc(collection(db, "filiais"), { nome: input.value });
+            input.value = '';
+            document.getElementById('btnAddFilial').innerText = 'Adicionar';
+        }
+
+        window.excluirFilial = async function(id) {
+            if(confirm('Tem certeza que deseja excluir esta filial? (As transações atreladas a ela perderão a referência de nome)')) {
+                await deleteDoc(doc(db, "filiais", id));
+            }
+        }
+
+        // 2. LEITURA DE TRANSAÇÕES
+        onSnapshot(query(collection(db, "transacoes")), (snapshot) => {
+            todasTransacoes = [];
+            snapshot.forEach((doc) => todasTransacoes.push({ id: doc.id, ...doc.data() }));
+            todasTransacoes.sort((a, b) => new Date(b.data) - new Date(a.data));
+            atualizarTela();
+        });
+
+        function atualizarTela() {
+            const filtroAtual = document.getElementById('filialFilter').value;
+            let filtrados = filtroAtual === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroAtual);
+            let ent = 0, sai = 0, diz = 0, ofe = 0, des = 0, out = 0;
+            let htmlLista = '';
+
+            filtrados.forEach(t => {
+                const val = parseFloat(t.valor);
+                if (t.tipo === 'entrada') {
+                    ent += val;
+                    if(t.categoria === 'Dízimo') diz += val; else if(t.categoria === 'Oferta') ofe += val; else out += val;
+                } else {
+                    sai += val;
+                    if(t.categoria === 'Manutenção') des += val; else out += val;
+                }
+
+                const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
+                const cor = t.tipo === 'entrada' ? 'val-entrada' : 'val-saida';
+                const sinal = t.tipo === 'entrada' ? '+' : '-';
+                const filialNome = dicionarioFiliais[t.filial_id] || 'Desconhecida';
+                
+                htmlLista += `
+                    <div class="list-item">
+                        <div class="info">
+                            <h4>${t.categoria} <span class="tag-filial">${filialNome}</span></h4>
+                            <p>${dataF} • ${t.obs || 'Sem obs'}</p>
+                        </div>
+                        <div class="${cor}">${sinal} ${formatarMoeda(val)}</div>
+                    </div>`;
+            });
+
+            document.getElementById('entradasTotal').innerText = formatarMoeda(ent);
+            document.getElementById('saidasTotal').innerText = formatarMoeda(sai);
+            document.getElementById('saldoTotal').innerText = formatarMoeda(ent - sai);
+            pieChartInst.data.datasets[0].data = [diz, ofe, des, out];
+            pieChartInst.update();
+            document.getElementById('listaTransacoes').innerHTML = htmlLista || '<p style="text-align:center;">Nenhum lançamento.</p>';
+        }
+
+        document.getElementById('filialFilter').addEventListener('change', atualizarTela);
+
+        // 3. LEITURA DE MEMBROS
+        onSnapshot(query(collection(db, "membros")), (snapshot) => {
+            let htmlMembros = '';
+            snapshot.forEach((doc) => {
+                const m = doc.data();
+                const filialNome = dicionarioFiliais[m.filial_id] || 'Desconhecida';
+                htmlMembros += `
+                    <div class="list-item">
+                        <div class="info">
+                            <h4>${m.nome}</h4>
+                            <p>${m.telefone || 'Sem telefone'} • <span class="tag-filial">${filialNome}</span></p>
+                        </div>
+                    </div>`;
+            });
+            document.getElementById('listaMembros').innerHTML = htmlMembros || '<p style="text-align:center;">Nenhum membro cadastrado.</p>';
+        });
+
+        // 4. LEITURA DE CONFIGURAÇÕES GERAIS
+        onSnapshot(doc(db, "configuracoes", "geral"), (docSnap) => {
+            if (docSnap.exists()) {
+                const dados = docSnap.data();
+                document.getElementById('appTitle').innerText = dados.nomeIgreja || 'Sistema IEAD';
+                document.getElementById('configNomeIgreja').value = dados.nomeIgreja || '';
+            }
+        });
+
+        // MODAIS
+        window.fecharModais = function() {
+            document.getElementById('transacaoModal').style.display = 'none';
+            document.getElementById('membroModal').style.display = 'none';
+            document.getElementById('formTransacao').reset();
+            document.getElementById('formMembro').reset();
+        }
+
+        window.abrirModalTransacao = function(tipo) {
+            if(Object.keys(dicionarioFiliais).length === 0) {
+                alert("Por favor, crie uma Filial na aba Ajustes primeiro.");
+                return;
+            }
+            document.getElementById('transacaoModal').style.display = 'flex';
+            document.getElementById('formTipo').value = tipo;
+            document.getElementById('modalTitle').innerText = tipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída';
+            document.getElementById('formCategoria').innerHTML = tipo === 'entrada' 
+                ? '<option>Dízimo</option><option>Oferta</option><option>Outros</option>' 
+                : '<option>Manutenção</option><option>Combustível</option><option>Outros</option>';
+        }
+
+        window.abrirModalMembro = function() {
+            if(Object.keys(dicionarioFiliais).length === 0) {
+                alert("Por favor, crie uma Filial na aba Ajustes primeiro.");
+                return;
+            }
+            document.getElementById('membroModal').style.display = 'flex';
+        }
+
+        document.getElementById('formTransacao').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            document.getElementById('btnSalvarTransacao').innerText = 'Salvando...';
+            const h = new Date();
+            const dataHoje = `${h.getFullYear()}-${String(h.getMonth()+1).padStart(2,'0')}-${String(h.getDate()).padStart(2,'0')}`;
+            await addDoc(collection(db, "transacoes"), {
+                tipo: document.getElementById('formTipo').value,
+                filial_id: document.getElementById('formFilial').value,
+                categoria: document.getElementById('formCategoria').value,
+                valor: parseFloat(document.getElementById('formValor').value),
+                obs: document.getElementById('formObs').value,
+                data: dataHoje
+            });
+            document.getElementById('btnSalvarTransacao').innerText = 'Salvar';
+            fecharModais();
+        });
+
+        document.getElementById('formMembro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            document.getElementById('btnSalvarMembro').innerText = 'Salvando...';
+            await addDoc(collection(db, "membros"), {
+                nome: document.getElementById('formMembroNome').value,
+                filial_id: document.getElementById('formMembroFilial').value,
+                telefone: document.getElementById('formMembroTel').value
+            });
+            document.getElementById('btnSalvarMembro').innerText = 'Salvar';
+            fecharModais();
+        });
+
+        document.getElementById('formAjustes').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
+            await setDoc(doc(db, "configuracoes", "geral"), {
+                nomeIgreja: document.getElementById('configNomeIgreja').value
+            }, { merge: true });
+            document.getElementById('btnSalvarAjustes').innerText = 'Salvar Cabeçalho';
+            alert('Cabeçalho atualizado com sucesso!');
+        });
+
+        // NAVEGAÇÃO
+        const navItems = document.querySelectorAll('.nav-item');
+        const tabContents = document.querySelectorAll('.tab-content');
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                navItems.forEach(nav => nav.classList.remove('active'));
+                tabContents.forEach(tab => tab.classList.remove('active'));
+                item.classList.add('active');
+                document.getElementById(item.getAttribute('data-target')).classList.add('active');
+            });
+        });
+// ATIVAR PWA
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+}
+    </script>
+</body>
+</html>

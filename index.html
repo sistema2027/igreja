@@ -282,20 +282,31 @@
             atualizarTela(); // Atualiza a tela com os novos nomes
         });
 
-        window.adicionarFilial = async function() {
-            const input = document.getElementById('novaFilialNome');
-            if(!input.value) return alert('Digite o nome da filial!');
-            document.getElementById('btnAddFilial').innerText = '...';
-            await addDoc(collection(db, "filiais"), { nome: input.value });
-            input.value = '';
-            document.getElementById('btnAddFilial').innerText = 'Adicionar';
+   window.adicionarFilial = async function() {
+    try {
+        const input = document.getElementById('novaFilialNome');
+        if(!input.value) {
+            alert('Digite o nome da filial!');
+            return;
         }
-
-        window.excluirFilial = async function(id) {
-            if(confirm('Tem certeza que deseja excluir esta filial? (As transações atreladas a ela perderão a referência de nome)')) {
-                await deleteDoc(doc(db, "filiais", id));
-            }
-        }
+        
+        // Muda o texto do botão para sabermos que ele clicou
+        document.getElementById('btnAddFilial').innerText = 'Salvando...';
+        
+        // Tenta salvar no Firebase
+        await addDoc(collection(db, "filiais"), { nome: input.value });
+        
+        // Limpa o campo e volta o botão ao normal
+        input.value = '';
+        document.getElementById('btnAddFilial').innerText = 'Adicionar';
+        alert('✅ Congregação adicionada com sucesso!');
+        
+    } catch (error) {
+        console.error(error);
+        alert('❌ Erro do Firebase ao salvar: ' + error.message);
+        document.getElementById('btnAddFilial').innerText = 'Adicionar';
+    }
+}
 
         // 2. LEITURA DE TRANSAÇÕES
         onSnapshot(query(collection(db, "transacoes")), (snapshot) => {

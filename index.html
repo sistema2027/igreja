@@ -65,6 +65,8 @@
         .modal h2 { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
@@ -85,7 +87,7 @@
             <div class="action-buttons">
                 <button class="btn" onclick="abrirModalTransacao('entrada')"><i class="fas fa-arrow-down"></i> Entrada</button>
                 <button class="btn" onclick="abrirModalTransacao('saida')" style="background: #ecf0f1; box-shadow: 0 4px 0 #bdc3c7;"><i class="fas fa-arrow-up"></i> Saída</button>
-                <button class="btn btn-pdf" onclick="alert('Gerador de PDF será integrado aqui!')"><i class="fas fa-file-pdf"></i> Gerar Relatório PDF</button>
+                <button class="btn btn-pdf" onclick="gerarPDF()"><i class="fas fa-file-pdf"></i> Gerar Relatório PDF</button>
             </div>
 
             <div class="summary-cards">
@@ -453,6 +455,77 @@
 // ATIVAR PWA
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js');
+}
+
+        // GERAÇÃO DE RELATÓRIO PDF
+window.gerarPDF = function() {
+    // Inicializa o jsPDF
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Dados Globais
+    const nomeIgreja = document.getElementById('configNomeIgreja').value || 'Igreja Evangélica';
+    const filtroAtual = document.getElementById('filialFilter').value;
+    const nomeFilial = filtroAtual === 'todas' ? 'Todas as Congregações' : (dicionarioFiliais[filtroAtual] || '');
+    
+    // Filtra e prepara os dados
+    let filtrados = filtroAtual === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroAtual);
+    let ent = 0, sai = 0;
+    
+    const corpoTabela = filtrados.map(t => {
+        const val = parseFloat(t.valor);
+        t.tipo === 'entrada' ? ent += val : sai += val;
+        const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
+        const sinal = t.tipo === 'entrada' ? '+' : '-';
+        return [
+            dataF, 
+            t.categoria, 
+            t.obs || '-', 
+            dicionarioFiliais[t.filial_id] || '-', 
+            `${sinal} R$ ${val.toFixed(2)}`
+        ];
+    });
+
+    // Cabeçalho do Documento
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(nomeIgreja, 14, 20);
+    
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Relatório Financeiro: ${nomeFilial}`, 14, 28);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 34);
+
+    // Gerar Tabela Automática
+    doc.autoTable({
+        startY: 40,
+        head: [['Data', 'Categoria', 'Dizimante/Obs', 'Filial', 'Valor']],
+        body: corpoTabela,
+        theme: 'striped',
+        headStyles: { fillColor: [212, 175, 55] }, // Cor Amarelo Escuro
+        styles: { fontSize: 10 },
+        columnStyles: { 4: { halign: 'right' } }
+    });
+
+    // Posição Y após a tabela
+    const finalY = doc.lastAutoTable.finalY || 40;
+
+    // Resumo de Saldos
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 14, finalY + 10);
+    doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 14, finalY + 18);
+    doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 14, finalY + 26);
+
+    // Linha de Assinatura do Tesoureiro
+    doc.setLineWidth(0.5);
+    doc.line(70, finalY + 55, 140, finalY + 55);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text("Assinatura do Tesoureiro / Responsável", 105, finalY + 62, { align: 'center' });
+
+    // Salva o arquivo no dispositivo
+    doc.save(`Relatorio_${nomeFilial.replace(/ /g, '_')}.pdf`);
 }
     </script>
 </body>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'financeiro-igreja-v4';
+const CACHE_NAME = 'financeiro-igreja-v5';
 self.addEventListener('install', (e) => {
     e.waitUntil(
         caches.open(CACHE_NAME).then((cache) => cache.addAll([

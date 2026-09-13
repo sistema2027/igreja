@@ -231,7 +231,7 @@
         <div class="modal">
             <h2 id="membroModalTitle">Cadastrar Membro</h2>
             <form id="formMembro">
-                <input type="hidden" id="formMembroId"> <!-- Adicionado para identificar a edição -->
+                <input type="hidden" id="formMembroId">
                 <div class="form-group">
                     <label>Nome Completo</label>
                     <input type="text" id="formMembroNome" required placeholder="Ex: João da Silva">
@@ -279,7 +279,6 @@
 
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        // INICIALIZAR GRÁFICOS
         function initCharts() {
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             pieChartInst = new Chart(ctxPie, {
@@ -346,15 +345,12 @@
             let htmlMembros = '';
             let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
 
-            // Ordenar membros alfabeticamente
             const membrosArr = [];
             snapshot.forEach(docSnap => membrosArr.push({ id: docSnap.id, ...docSnap.data() }));
             membrosArr.sort((a, b) => a.nome.localeCompare(b.nome));
 
             membrosArr.forEach((m) => {
                 optionsMembros += `<option value="${m.nome}">${m.nome}</option>`;
-                
-                // Variáveis para função de editar (escapando aspas)
                 const paramsEdit = `'${m.id}', '${m.nome.replace(/'/g, "\\'")}', '${m.filial_id}', '${(m.telefone || '').replace(/'/g, "\\'")}'`;
 
                 htmlMembros += `<div class="list-item">
@@ -372,11 +368,9 @@
             document.getElementById('formMembroRef').innerHTML = optionsMembros;
         });
 
-        // FUNÇÃO DE EDITAR MEMBRO
         window.editarMembro = function(id, nome, filial_id, telefone) {
             document.getElementById('membroModal').style.display = 'flex';
             document.getElementById('membroModalTitle').innerText = 'Editar Membro';
-            
             document.getElementById('formMembroId').value = id;
             document.getElementById('formMembroNome').value = nome;
             document.getElementById('formMembroFilial').value = filial_id;
@@ -391,7 +385,6 @@
             atualizarTela();
         });
 
-        // ATUALIZAR INTERFACE
         function atualizarTela() {
             const filtroAtual = document.getElementById('filialFilter').value;
             let filtrados = filtroAtual === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroAtual);
@@ -437,7 +430,6 @@
             atualizarGraficoBarras(filtrados);
         }
 
-        // GRÁFICO DE BARRAS INTELIGENTE
         function atualizarGraficoBarras(dados) {
             let dadosEntradas = dados.filter(d => d.tipo === 'entrada');
             let mapaAgrupado = {};
@@ -520,7 +512,7 @@
             document.getElementById('membroModal').style.display = 'none';
             document.getElementById('formTransacao').reset();
             document.getElementById('formMembro').reset();
-            document.getElementById('formMembroId').value = ''; // Limpa ID de edição
+            document.getElementById('formMembroId').value = ''; 
         }
 
         window.abrirModalTransacao = function(tipo) {
@@ -541,7 +533,7 @@
 
         window.abrirModalMembro = function() {
             if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
-            document.getElementById('formMembroId').value = ''; // Garante modo de criação
+            document.getElementById('formMembroId').value = ''; 
             document.getElementById('membroModalTitle').innerText = 'Cadastrar Membro';
             document.getElementById('membroModal').style.display = 'flex';
         }
@@ -568,7 +560,6 @@
             fecharModais();
         });
 
-        // SALVAR OU ATUALIZAR MEMBRO
         document.getElementById('formMembro').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarMembro').innerText = 'Salvando...';
@@ -581,15 +572,30 @@
             };
 
             if (membroId) {
-                // Atualizar existente
                 await updateDoc(doc(db, "membros", membroId), dadosMembro);
             } else {
-                // Criar novo
                 await addDoc(collection(db, "membros"), dadosMembro);
             }
 
             document.getElementById('btnSalvarMembro').innerText = 'Salvar';
             fecharModais();
+        });
+
+        // 5. CONFIGURAÇÕES GERAIS
+        onSnapshot(doc(db, "configuracoes", "geral"), (docSnap) => {
+            if (docSnap.exists()) {
+                const dados = docSnap.data();
+                document.getElementById('appTitle').innerText = dados.nomeIgreja || 'Sistema IEAD';
+                document.getElementById('configNomeIgreja').value = dados.nomeIgreja || '';
+            }
+        });
+
+        document.getElementById('formAjustes').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
+            await setDoc(doc(db, "configuracoes", "geral"), { nomeIgreja: document.getElementById('configNomeIgreja').value }, { merge: true });
+            document.getElementById('btnSalvarAjustes').innerText = 'Salvar Cabeçalho';
+            alert('Cabeçalho atualizado com sucesso!');
         });
 
         // NAVEGAÇÃO
@@ -605,7 +611,7 @@
             });
         });
 
-        // GERAÇÃO DE PDF OTIMIZADA
+        // GERAÇÃO DE PDF OTIMIZADA E CORRIGIDA
         window.gerarPDF = function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -615,6 +621,7 @@
             
             let filtrados = filtroAtual === 'todas' ? [...todasTransacoes] : todasTransacoes.filter(t => t.filial_id === filtroAtual);
             
+            // Ordenar por data
             filtrados.sort((a, b) => new Date(a.data) - new Date(b.data));
 
             let ent = 0, sai = 0;
@@ -635,6 +642,7 @@
 
             const dizimistasPeriodo = [...new Set(filtrados.filter(t => t.tipo === 'entrada' && t.membro).map(t => t.membro))];
 
+            // 1. Cabeçalho
             doc.setFontSize(16);
             doc.setFont(undefined, 'bold');
             doc.text(tituloDoc, 14, 20);
@@ -642,18 +650,29 @@
             doc.setFont(undefined, 'normal');
             doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
 
+            // 2. Gráfico de Pizza
             const canvasPie = document.getElementById('pieChart');
             const imgPie = canvasPie.toDataURL('image/png', 1.0);
-            doc.addImage(imgPie, 'PNG', 14, 32, 60, 60);
+            
+            // Cálculo dinâmico para não distorcer
+            const proporcao = canvasPie.width / canvasPie.height;
+            const larguraPdf = 75; // Largura do gráfico no PDF
+            const alturaPdf = larguraPdf / proporcao;
 
+            doc.addImage(imgPie, 'PNG', 14, 32, larguraPdf, alturaPdf);
+
+            // Resumo Lateral ao Gráfico
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
-            doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 85, 50);
-            doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 85, 60);
-            doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 85, 70);
+            doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 95, 45);
+            doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 95, 55);
+            doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 95, 65);
 
+            // 3. Tabela Cronológica
+            const inicioTabela = Math.max(90, 32 + alturaPdf + 10);
+            
             doc.autoTable({
-                startY: 100,
+                startY: inicioTabela,
                 head: [['Data', 'Categoria', 'Observação', 'Filial', 'Valor']],
                 body: corpoTabela,
                 theme: 'striped',
@@ -662,14 +681,15 @@
                 columnStyles: { 4: { halign: 'right' } }
             });
 
-            let finalY = doc.lastAutoTable.finalY || 100;
+            let finalY = doc.lastAutoTable.finalY || inicioTabela;
 
+            // 4. Lista de Dizimistas
             if (dizimistasPeriodo.length > 0) {
                 if (finalY > 250) { doc.addPage(); finalY = 20; }
                 
                 doc.setFontSize(11);
                 doc.setFont(undefined, 'bold');
-                doc.text("Membros que ofertaram/dizimaram neste período:", 14, finalY + 15);
+                doc.text("Membros que Dizimaram neste período:", 14, finalY + 15);
                 
                 doc.setFontSize(9);
                 doc.setFont(undefined, 'normal');
@@ -682,10 +702,12 @@
                 finalY = yDizimista;
             }
 
+            // 5. Linha de Assinatura
             if (finalY > 260) { doc.addPage(); finalY = 20; }
             doc.setLineWidth(0.5);
             doc.line(70, finalY + 30, 140, finalY + 30);
             doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
             doc.text("Assinatura do Tesoureiro / Responsável", 105, finalY + 37, { align: 'center' });
 
             doc.save(`Relatorio_${tituloDoc.replace(/ /g, '_')}.pdf`);

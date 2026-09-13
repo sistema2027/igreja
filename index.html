@@ -226,11 +226,12 @@
         </div>
     </div>
 
-    <!-- MODAL DE NOVO MEMBRO -->
+    <!-- MODAL DE MEMBRO (Criar e Editar) -->
     <div class="modal-overlay" id="membroModal">
         <div class="modal">
-            <h2>Cadastrar Membro</h2>
+            <h2 id="membroModalTitle">Cadastrar Membro</h2>
             <form id="formMembro">
+                <input type="hidden" id="formMembroId"> <!-- Adicionado para identificar a edição -->
                 <div class="form-group">
                     <label>Nome Completo</label>
                     <input type="text" id="formMembroNome" required placeholder="Ex: João da Silva">
@@ -254,7 +255,7 @@
     <!-- SCRIPT PRINCIPAL -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAAs_xAn17BI0Fk_eZ7ZwMjEJx3wmkluWU",
@@ -278,7 +279,7 @@
 
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        // INICIALIZAR GRÁFICOS (mantendo proporção controlada)
+        // INICIALIZAR GRÁFICOS
         function initCharts() {
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             pieChartInst = new Chart(ctxPie, {
@@ -340,25 +341,47 @@
             document.getElementById('listaCategoriasAjustes').innerHTML = htmlAdmin || '<p style="font-size: 0.8rem; color: #777;">Nenhuma categoria criada.</p>';
         });
 
-        // 3. MEMBROS
+        // 3. MEMBROS (com suporte a edição)
         onSnapshot(query(collection(db, "membros")), (snapshot) => {
             let htmlMembros = '';
             let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
 
-            snapshot.forEach((docSnap) => {
-                const m = docSnap.data();
+            // Ordenar membros alfabeticamente
+            const membrosArr = [];
+            snapshot.forEach(docSnap => membrosArr.push({ id: docSnap.id, ...docSnap.data() }));
+            membrosArr.sort((a, b) => a.nome.localeCompare(b.nome));
+
+            membrosArr.forEach((m) => {
                 optionsMembros += `<option value="${m.nome}">${m.nome}</option>`;
+                
+                // Variáveis para função de editar (escapando aspas)
+                const paramsEdit = `'${m.id}', '${m.nome.replace(/'/g, "\\'")}', '${m.filial_id}', '${(m.telefone || '').replace(/'/g, "\\'")}'`;
+
                 htmlMembros += `<div class="list-item">
-                        <div class="info">
+                        <div class="info" style="flex:1;">
                             <h4>${m.nome}</h4>
                             <p>${m.telefone || 'Sem telefone'} • <span class="tag-filial">${dicionarioFiliais[m.filial_id] || ''}</span></p>
                         </div>
-                        <button onclick="excluirItem('membros', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
+                        <div style="display:flex; gap:10px;">
+                            <button onclick="editarMembro(${paramsEdit})" style="background:none; border:none; color:var(--primary-dark); cursor:pointer;"><i class="fas fa-edit"></i></button>
+                            <button onclick="excluirItem('membros', '${m.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
+                        </div>
                     </div>`;
             });
             document.getElementById('listaMembros').innerHTML = htmlMembros || '<p style="text-align:center;">Nenhum membro cadastrado.</p>';
             document.getElementById('formMembroRef').innerHTML = optionsMembros;
         });
+
+        // FUNÇÃO DE EDITAR MEMBRO
+        window.editarMembro = function(id, nome, filial_id, telefone) {
+            document.getElementById('membroModal').style.display = 'flex';
+            document.getElementById('membroModalTitle').innerText = 'Editar Membro';
+            
+            document.getElementById('formMembroId').value = id;
+            document.getElementById('formMembroNome').value = nome;
+            document.getElementById('formMembroFilial').value = filial_id;
+            document.getElementById('formMembroTel').value = telefone;
+        }
 
         // 4. TRANSAÇÕES
         onSnapshot(query(collection(db, "transacoes")), (snapshot) => {
@@ -447,7 +470,6 @@
                 }
             });
 
-            // Ordenar chaves cronologicamente para exibição
             let labelsOrdenadas = Object.keys(mapaAgrupado).sort();
             let dadosOrdenados = labelsOrdenadas.map(k => mapaAgrupado[k]);
 
@@ -498,14 +520,13 @@
             document.getElementById('membroModal').style.display = 'none';
             document.getElementById('formTransacao').reset();
             document.getElementById('formMembro').reset();
+            document.getElementById('formMembroId').value = ''; // Limpa ID de edição
         }
 
         window.abrirModalTransacao = function(tipo) {
             if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
             
-            // Preenche a data com hoje
             document.getElementById('formData').value = new Date().toISOString().split('T')[0];
-            
             document.getElementById('transacaoModal').style.display = 'flex';
             document.getElementById('formTipo').value = tipo;
             document.getElementById('modalTitle').innerText = tipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída';
@@ -520,6 +541,8 @@
 
         window.abrirModalMembro = function() {
             if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
+            document.getElementById('formMembroId').value = ''; // Garante modo de criação
+            document.getElementById('membroModalTitle').innerText = 'Cadastrar Membro';
             document.getElementById('membroModal').style.display = 'flex';
         }
 
@@ -545,14 +568,26 @@
             fecharModais();
         });
 
+        // SALVAR OU ATUALIZAR MEMBRO
         document.getElementById('formMembro').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarMembro').innerText = 'Salvando...';
-            await addDoc(collection(db, "membros"), {
+            
+            const membroId = document.getElementById('formMembroId').value;
+            const dadosMembro = {
                 nome: document.getElementById('formMembroNome').value,
                 filial_id: document.getElementById('formMembroFilial').value,
                 telefone: document.getElementById('formMembroTel').value
-            });
+            };
+
+            if (membroId) {
+                // Atualizar existente
+                await updateDoc(doc(db, "membros", membroId), dadosMembro);
+            } else {
+                // Criar novo
+                await addDoc(collection(db, "membros"), dadosMembro);
+            }
+
             document.getElementById('btnSalvarMembro').innerText = 'Salvar';
             fecharModais();
         });
@@ -580,12 +615,10 @@
             
             let filtrados = filtroAtual === 'todas' ? [...todasTransacoes] : todasTransacoes.filter(t => t.filial_id === filtroAtual);
             
-            // Ordenar transações para o PDF cronologicamente (Mais antigas primeiro)
             filtrados.sort((a, b) => new Date(a.data) - new Date(b.data));
 
             let ent = 0, sai = 0;
             
-            // Tabela sem os nomes
             const corpoTabela = filtrados.map(t => {
                 const val = parseFloat(t.valor);
                 t.tipo === 'entrada' ? ent += val : sai += val;
@@ -600,10 +633,8 @@
                 ];
             });
 
-            // Extrair nomes únicos de dizimistas do período
             const dizimistasPeriodo = [...new Set(filtrados.filter(t => t.tipo === 'entrada' && t.membro).map(t => t.membro))];
 
-            // 1. Cabeçalho
             doc.setFontSize(16);
             doc.setFont(undefined, 'bold');
             doc.text(tituloDoc, 14, 20);
@@ -611,19 +642,16 @@
             doc.setFont(undefined, 'normal');
             doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
 
-            // 2. Gráfico de Pizza (Captura da tela em tamanho reduzido)
             const canvasPie = document.getElementById('pieChart');
             const imgPie = canvasPie.toDataURL('image/png', 1.0);
             doc.addImage(imgPie, 'PNG', 14, 32, 60, 60);
 
-            // Resumo Lateral ao Gráfico
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
             doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 85, 50);
             doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 85, 60);
             doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 85, 70);
 
-            // 3. Tabela Cronológica
             doc.autoTable({
                 startY: 100,
                 head: [['Data', 'Categoria', 'Observação', 'Filial', 'Valor']],
@@ -636,7 +664,6 @@
 
             let finalY = doc.lastAutoTable.finalY || 100;
 
-            // 4. Lista de Dizimistas (Nova página se faltar espaço)
             if (dizimistasPeriodo.length > 0) {
                 if (finalY > 250) { doc.addPage(); finalY = 20; }
                 
@@ -655,7 +682,6 @@
                 finalY = yDizimista;
             }
 
-            // 5. Linha de Assinatura
             if (finalY > 260) { doc.addPage(); finalY = 20; }
             doc.setLineWidth(0.5);
             doc.line(70, finalY + 30, 140, finalY + 30);

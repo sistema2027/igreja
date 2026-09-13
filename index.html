@@ -39,7 +39,8 @@
         .card .amount { font-size: 1.6rem; font-weight: bold; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         
-        .chart-container { background: var(--white); padding: 15px; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .chart-container { background: var(--white); padding: 15px; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 20px; max-width: 100%; }
+        .chart-wrapper { position: relative; height: 280px; width: 100%; }
         .chart-container h3 { font-size: 1rem; margin-bottom: 15px; color: var(--text-dark); text-align: center; }
         
         .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
@@ -118,13 +119,17 @@
                     <button class="time-btn active" onclick="mudarTempo('mes', this)">Mês</button>
                     <button class="time-btn" onclick="mudarTempo('ano', this)">Ano</button>
                 </div>
-                <canvas id="barChart"></canvas>
+                <div class="chart-wrapper">
+                    <canvas id="barChart"></canvas>
+                </div>
             </div>
 
             <!-- Gráfico de Pizza -->
             <div class="chart-container">
                 <h3>Distribuição Financeira</h3>
-                <canvas id="pieChart"></canvas>
+                <div class="chart-wrapper">
+                    <canvas id="pieChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -147,17 +152,6 @@
         <div id="tab-ajustes" class="tab-content">
             <h2 style="margin-bottom: 15px;">Configurações</h2>
             
-            <div class="card" style="border-left: none; margin-bottom: 15px;">
-                <h3 style="margin-bottom: 15px; color: var(--text-dark);">Dados Gerais</h3>
-                <form id="formAjustes">
-                    <div class="form-group">
-                        <label>Nome Oficial (Cabeçalho)</label>
-                        <input type="text" id="configNomeIgreja" placeholder="Ex: Igreja Evangélica Sede" required>
-                    </div>
-                    <button type="submit" class="btn" style="width: 100%;" id="btnSalvarAjustes">Salvar Cabeçalho</button>
-                </form>
-            </div>
-
             <div class="card" style="border-left: none; margin-bottom: 15px;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Gestão de Congregações</h3>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -196,6 +190,12 @@
             <h2 id="modalTitle">Novo Lançamento</h2>
             <form id="formTransacao">
                 <input type="hidden" id="formTipo">
+                
+                <div class="form-group">
+                    <label>Data</label>
+                    <input type="date" id="formData" required>
+                </div>
+
                 <div class="form-group">
                     <label>Filial</label>
                     <select id="formFilial" required></select>
@@ -254,7 +254,7 @@
     <!-- SCRIPT PRINCIPAL -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAAs_xAn17BI0Fk_eZ7ZwMjEJx3wmkluWU",
@@ -268,35 +268,30 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // VARIÁVEIS GLOBAIS
         let todasTransacoes = [];
         let dicionarioFiliais = {};
-        let listaMembrosGlobais = [];
         let catEntradas = [];
         let catSaidas = [];
-        
         let pieChartInst = null;
         let barChartInst = null;
         let filtroTempoGlobal = 'mes'; 
 
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        // INICIALIZAR GRÁFICOS
+        // INICIALIZAR GRÁFICOS (mantendo proporção controlada)
         function initCharts() {
-            // Pizza
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             pieChartInst = new Chart(ctxPie, {
                 type: 'doughnut',
                 data: { labels: [], datasets: [{ data: [], backgroundColor: ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6', '#3498db', '#9b59b6'], borderWidth: 0 }] },
-                options: { responsive: true, cutout: '65%' }
+                options: { responsive: true, maintainAspectRatio: false, cutout: '60%' }
             });
 
-            // Barras (Entradas)
             const ctxBar = document.getElementById('barChart').getContext('2d');
             barChartInst = new Chart(ctxBar, {
                 type: 'bar',
                 data: { labels: [], datasets: [{ label: 'Entradas R$', data: [], backgroundColor: '#2ECC71', borderRadius: 5 }] },
-                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
         }
         initCharts();
@@ -325,10 +320,9 @@
             atualizarTela();
         });
 
-        // 2. CATEGORIAS (Dinâmicas)
+        // 2. CATEGORIAS
         onSnapshot(query(collection(db, "categorias")), (snapshot) => {
-            catEntradas = [];
-            catSaidas = [];
+            catEntradas = []; catSaidas = [];
             let htmlAdmin = '';
             
             snapshot.forEach((docSnap) => {
@@ -341,30 +335,25 @@
                         <button onclick="excluirItem('categorias', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
                     </div>`;
             });
-            
-            // Fallbacks caso não haja categorias criadas
             if(catEntradas.length === 0) catEntradas = ['Dízimo', 'Oferta'];
             if(catSaidas.length === 0) catSaidas = ['Manutenção'];
-            
             document.getElementById('listaCategoriasAjustes').innerHTML = htmlAdmin || '<p style="font-size: 0.8rem; color: #777;">Nenhuma categoria criada.</p>';
         });
 
         // 3. MEMBROS
         onSnapshot(query(collection(db, "membros")), (snapshot) => {
-            listaMembrosGlobais = [];
             let htmlMembros = '';
             let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
 
             snapshot.forEach((docSnap) => {
                 const m = docSnap.data();
-                listaMembrosGlobais.push({id: docSnap.id, nome: m.nome});
                 optionsMembros += `<option value="${m.nome}">${m.nome}</option>`;
-                
                 htmlMembros += `<div class="list-item">
                         <div class="info">
                             <h4>${m.nome}</h4>
                             <p>${m.telefone || 'Sem telefone'} • <span class="tag-filial">${dicionarioFiliais[m.filial_id] || ''}</span></p>
                         </div>
+                        <button onclick="excluirItem('membros', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
                     </div>`;
             });
             document.getElementById('listaMembros').innerHTML = htmlMembros || '<p style="text-align:center;">Nenhum membro cadastrado.</p>';
@@ -379,25 +368,22 @@
             atualizarTela();
         });
 
-        // FUNÇÃO CENTRAL: ATUALIZAR INTERFACE
+        // ATUALIZAR INTERFACE
         function atualizarTela() {
             const filtroAtual = document.getElementById('filialFilter').value;
             let filtrados = filtroAtual === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroAtual);
             
             let ent = 0, sai = 0;
-            let mapaCategorias = {}; // Para o gráfico de pizza
+            let mapaCategorias = {}; 
             let htmlLista = '';
 
             filtrados.forEach(t => {
                 const val = parseFloat(t.valor);
-                
-                // Soma Categorias para a Pizza
                 if(!mapaCategorias[t.categoria]) mapaCategorias[t.categoria] = 0;
                 mapaCategorias[t.categoria] += val;
 
                 if (t.tipo === 'entrada') ent += val; else sai += val;
 
-                // Montar Histórico
                 const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
                 const cor = t.tipo === 'entrada' ? 'val-entrada' : 'val-saida';
                 const sinal = t.tipo === 'entrada' ? '+' : '-';
@@ -405,11 +391,14 @@
                 
                 htmlLista += `
                     <div class="list-item">
-                        <div class="info">
+                        <div class="info" style="flex:1;">
                             <h4>${t.categoria} <span class="tag-filial">${dicionarioFiliais[t.filial_id] || ''}</span></h4>
                             <p>${dataF} • ${membroStr} ${t.obs ? '- '+t.obs : ''}</p>
                         </div>
-                        <div class="${cor}">${sinal} ${formatarMoeda(val)}</div>
+                        <div style="text-align:right;">
+                            <div class="${cor}" style="margin-bottom:5px;">${sinal} ${formatarMoeda(val)}</div>
+                            <button onclick="excluirItem('transacoes', '${t.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i> Excluir</button>
+                        </div>
                     </div>`;
             });
 
@@ -418,51 +407,52 @@
             document.getElementById('saldoTotal').innerText = formatarMoeda(ent - sai);
             document.getElementById('listaTransacoes').innerHTML = htmlLista || '<p style="text-align:center;">Nenhum lançamento.</p>';
 
-            // Atualiza Pizza
             pieChartInst.data.labels = Object.keys(mapaCategorias);
             pieChartInst.data.datasets[0].data = Object.values(mapaCategorias);
             pieChartInst.update();
 
-            // Atualiza Barras
             atualizarGraficoBarras(filtrados);
         }
 
-        // LÓGICA DO GRÁFICO DE BARRAS (Filtros Temporais)
+        // GRÁFICO DE BARRAS INTELIGENTE
         function atualizarGraficoBarras(dados) {
             let dadosEntradas = dados.filter(d => d.tipo === 'entrada');
             let mapaAgrupado = {};
             const hoje = new Date();
+            hoje.setHours(0,0,0,0);
 
             dadosEntradas.forEach(t => {
-                const dataTransacao = new Date(t.data + "T00:00:00");
+                const dataT = new Date(t.data + "T00:00:00");
                 const val = parseFloat(t.valor);
                 
                 if (filtroTempoGlobal === 'semana') {
-                    // Últimos 7 dias
-                    const diffDias = Math.floor((hoje - dataTransacao) / (1000 * 60 * 60 * 24));
-                    if (diffDias <= 7 && diffDias >= 0) {
-                        const chave = dataTransacao.toLocaleDateString('pt-BR', {weekday: 'short'});
+                    const diffTime = Math.abs(hoje - dataT);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                    if (diffDays <= 7 && dataT <= hoje) {
+                        const chave = dataT.toLocaleDateString('pt-BR', {weekday: 'short', day: '2-digit'});
                         mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
                     }
                 } 
                 else if (filtroTempoGlobal === 'mes') {
-                    // Mês atual
-                    if (dataTransacao.getMonth() === hoje.getMonth() && dataTransacao.getFullYear() === hoje.getFullYear()) {
-                        const chave = dataTransacao.getDate().toString();
+                    if (dataT.getMonth() === hoje.getMonth() && dataT.getFullYear() === hoje.getFullYear()) {
+                        const chave = dataT.getDate().toString().padStart(2, '0');
                         mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
                     }
                 } 
                 else if (filtroTempoGlobal === 'ano') {
-                    // Ano atual
-                    if (dataTransacao.getFullYear() === hoje.getFullYear()) {
-                        const chave = dataTransacao.toLocaleDateString('pt-BR', {month: 'short'});
+                    if (dataT.getFullYear() === hoje.getFullYear()) {
+                        const chave = dataT.toLocaleDateString('pt-BR', {month: 'short'});
                         mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
                     }
                 }
             });
 
-            barChartInst.data.labels = Object.keys(mapaAgrupado);
-            barChartInst.data.datasets[0].data = Object.values(mapaAgrupado);
+            // Ordenar chaves cronologicamente para exibição
+            let labelsOrdenadas = Object.keys(mapaAgrupado).sort();
+            let dadosOrdenados = labelsOrdenadas.map(k => mapaAgrupado[k]);
+
+            barChartInst.data.labels = labelsOrdenadas;
+            barChartInst.data.datasets[0].data = dadosOrdenados;
             barChartInst.update();
         }
 
@@ -472,22 +462,12 @@
             btnElement.classList.add('active');
             atualizarTela();
         }
-        document.getElementById('filialFilter').addEventListener('change', atualizarTela);
 
-        // 5. CONFIGURAÇÕES GERAIS
-        onSnapshot(doc(db, "configuracoes", "geral"), (docSnap) => {
-            if (docSnap.exists()) {
-                const dados = docSnap.data();
-                document.getElementById('appTitle').innerText = dados.nomeIgreja || 'Sistema IEAD';
-                document.getElementById('configNomeIgreja').value = dados.nomeIgreja || '';
-            }
-        });
-
-        // AÇÕES DE CRUD (Adicionar / Excluir)
+        // CRUD GERAL
         window.adicionarFilial = async function() {
             try {
                 const input = document.getElementById('novaFilialNome');
-                if(!input.value) return alert('Digite o nome da filial!');
+                if(!input.value) return alert('Digite o nome!');
                 document.getElementById('btnAddFilial').innerText = '...';
                 await addDoc(collection(db, "filiais"), { nome: input.value });
                 input.value = '';
@@ -500,17 +480,14 @@
                 const input = document.getElementById('novaCatNome');
                 if(!input.value) return alert('Digite o nome!');
                 document.getElementById('btnAddCat').innerText = '...';
-                await addDoc(collection(db, "categorias"), { 
-                    nome: input.value, 
-                    tipo: document.getElementById('novaCatTipo').value 
-                });
+                await addDoc(collection(db, "categorias"), { nome: input.value, tipo: document.getElementById('novaCatTipo').value });
                 input.value = '';
                 document.getElementById('btnAddCat').innerText = 'Adicionar Categoria';
             } catch(e) { alert("Erro ao salvar categoria."); }
         }
 
         window.excluirItem = async function(colecao, id) {
-            if(confirm('Tem certeza que deseja excluir?')) {
+            if(confirm('Tem certeza que deseja excluir este item permanentemente?')) {
                 await deleteDoc(doc(db, colecao, id));
             }
         }
@@ -526,17 +503,18 @@
         window.abrirModalTransacao = function(tipo) {
             if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
             
+            // Preenche a data com hoje
+            document.getElementById('formData').value = new Date().toISOString().split('T')[0];
+            
             document.getElementById('transacaoModal').style.display = 'flex';
             document.getElementById('formTipo').value = tipo;
             document.getElementById('modalTitle').innerText = tipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída';
             
-            // Popula Categorias baseadas no tipo
             let catHTML = '';
             const arrayCat = tipo === 'entrada' ? catEntradas : catSaidas;
             arrayCat.forEach(c => catHTML += `<option value="${c}">${c}</option>`);
             document.getElementById('formCategoria').innerHTML = catHTML;
 
-            // Exibe campo de membro apenas para entradas
             document.getElementById('grupoMembro').style.display = tipo === 'entrada' ? 'block' : 'none';
         }
 
@@ -548,8 +526,6 @@
         document.getElementById('formTransacao').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarTransacao').innerText = 'Salvando...';
-            const h = new Date();
-            const dataHoje = `${h.getFullYear()}-${String(h.getMonth()+1).padStart(2,'0')}-${String(h.getDate()).padStart(2,'0')}`;
             
             const transacaoObj = {
                 tipo: document.getElementById('formTipo').value,
@@ -557,10 +533,9 @@
                 categoria: document.getElementById('formCategoria').value,
                 valor: parseFloat(document.getElementById('formValor').value),
                 obs: document.getElementById('formObs').value,
-                data: dataHoje
+                data: document.getElementById('formData').value
             };
 
-            // Se for entrada, atrela o membro (se selecionado)
             if(transacaoObj.tipo === 'entrada') {
                 transacaoObj.membro = document.getElementById('formMembroRef').value;
             }
@@ -582,15 +557,7 @@
             fecharModais();
         });
 
-        document.getElementById('formAjustes').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
-            await setDoc(doc(db, "configuracoes", "geral"), { nomeIgreja: document.getElementById('configNomeIgreja').value }, { merge: true });
-            document.getElementById('btnSalvarAjustes').innerText = 'Salvar Cabeçalho';
-            alert('Cabeçalho atualizado com sucesso!');
-        });
-
-        // NAVEGAÇÃO DE ABAS
+        // NAVEGAÇÃO
         const navItems = document.querySelectorAll('.nav-item');
         const tabContents = document.querySelectorAll('.tab-content');
         navItems.forEach(item => {
@@ -603,62 +570,99 @@
             });
         });
 
-        // GERAÇÃO DE PDF
+        // GERAÇÃO DE PDF OTIMIZADA
         window.gerarPDF = function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            const nomeIgreja = document.getElementById('configNomeIgreja').value || 'Igreja Evangélica';
-            const filtroAtual = document.getElementById('filialFilter').value;
-            const nomeFilial = filtroAtual === 'todas' ? 'Todas as Congregações' : (dicionarioFiliais[filtroAtual] || '');
             
-            let filtrados = filtroAtual === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroAtual);
+            const filtroAtual = document.getElementById('filialFilter').value;
+            const tituloDoc = filtroAtual === 'todas' ? 'Relatório Geral' : (dicionarioFiliais[filtroAtual] || 'Relatório Financeiro');
+            
+            let filtrados = filtroAtual === 'todas' ? [...todasTransacoes] : todasTransacoes.filter(t => t.filial_id === filtroAtual);
+            
+            // Ordenar transações para o PDF cronologicamente (Mais antigas primeiro)
+            filtrados.sort((a, b) => new Date(a.data) - new Date(b.data));
+
             let ent = 0, sai = 0;
             
+            // Tabela sem os nomes
             const corpoTabela = filtrados.map(t => {
                 const val = parseFloat(t.valor);
                 t.tipo === 'entrada' ? ent += val : sai += val;
                 const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
                 const sinal = t.tipo === 'entrada' ? '+' : '-';
-                const membroObs = (t.membro ? t.membro + " " : "") + (t.obs || '');
                 return [
                     dataF, 
                     t.categoria, 
-                    membroObs || '-', 
+                    t.obs || '-', 
                     dicionarioFiliais[t.filial_id] || '-', 
                     `${sinal} R$ ${val.toFixed(2)}`
                 ];
             });
 
+            // Extrair nomes únicos de dizimistas do período
+            const dizimistasPeriodo = [...new Set(filtrados.filter(t => t.tipo === 'entrada' && t.membro).map(t => t.membro))];
+
+            // 1. Cabeçalho
             doc.setFontSize(16);
             doc.setFont(undefined, 'bold');
-            doc.text(nomeIgreja, 14, 20);
-            doc.setFontSize(12);
+            doc.text(tituloDoc, 14, 20);
+            doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
-            doc.text(`Relatório Financeiro: ${nomeFilial}`, 14, 28);
-            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 34);
+            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
 
+            // 2. Gráfico de Pizza (Captura da tela em tamanho reduzido)
+            const canvasPie = document.getElementById('pieChart');
+            const imgPie = canvasPie.toDataURL('image/png', 1.0);
+            doc.addImage(imgPie, 'PNG', 14, 32, 60, 60);
+
+            // Resumo Lateral ao Gráfico
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'bold');
+            doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 85, 50);
+            doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 85, 60);
+            doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 85, 70);
+
+            // 3. Tabela Cronológica
             doc.autoTable({
-                startY: 40,
-                head: [['Data', 'Categoria', 'Membro / Obs', 'Filial', 'Valor']],
+                startY: 100,
+                head: [['Data', 'Categoria', 'Observação', 'Filial', 'Valor']],
                 body: corpoTabela,
                 theme: 'striped',
                 headStyles: { fillColor: [212, 175, 55] },
-                styles: { fontSize: 10 },
+                styles: { fontSize: 9 },
                 columnStyles: { 4: { halign: 'right' } }
             });
 
-            const finalY = doc.lastAutoTable.finalY || 40;
-            doc.setFontSize(12);
-            doc.setFont(undefined, 'bold');
-            doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 14, finalY + 10);
-            doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 14, finalY + 18);
-            doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 14, finalY + 26);
+            let finalY = doc.lastAutoTable.finalY || 100;
+
+            // 4. Lista de Dizimistas (Nova página se faltar espaço)
+            if (dizimistasPeriodo.length > 0) {
+                if (finalY > 250) { doc.addPage(); finalY = 20; }
+                
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'bold');
+                doc.text("Membros que ofertaram/dizimaram neste período:", 14, finalY + 15);
+                
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'normal');
+                let yDizimista = finalY + 22;
+                dizimistasPeriodo.forEach(nome => {
+                    doc.text(`• ${nome}`, 14, yDizimista);
+                    yDizimista += 6;
+                    if(yDizimista > 280) { doc.addPage(); yDizimista = 20; }
+                });
+                finalY = yDizimista;
+            }
+
+            // 5. Linha de Assinatura
+            if (finalY > 260) { doc.addPage(); finalY = 20; }
             doc.setLineWidth(0.5);
-            doc.line(70, finalY + 55, 140, finalY + 55);
+            doc.line(70, finalY + 30, 140, finalY + 30);
             doc.setFontSize(10);
-            doc.setFont(undefined, 'normal');
-            doc.text("Assinatura do Tesoureiro", 105, finalY + 62, { align: 'center' });
-            doc.save(`Relatorio_${nomeFilial.replace(/ /g, '_')}.pdf`);
+            doc.text("Assinatura do Tesoureiro / Responsável", 105, finalY + 37, { align: 'center' });
+
+            doc.save(`Relatorio_${tituloDoc.replace(/ /g, '_')}.pdf`);
         }
 
         // ATIVAR PWA

@@ -76,6 +76,7 @@
     </header>
 
     <div class="container">
+        <!-- ================= ABA 1: DASHBOARD ================= -->
         <div id="tab-inicio" class="tab-content active">
             <select id="filialFilter"><option value="todas">🏢 Visão Global (Todas as Filiais)</option></select>
             <div class="action-buttons">
@@ -232,7 +233,6 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        // ADICIONEI O setDoc AQUI NA IMPORTAÇÃO!
         import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -256,12 +256,13 @@
         let filtroTempoGlobal = 'mes'; 
 
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const coresHex = ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6', '#3498db', '#9b59b6'];
 
         function initCharts() {
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             pieChartInst = new Chart(ctxPie, {
                 type: 'doughnut',
-                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6', '#3498db', '#9b59b6'], borderWidth: 0 }] },
+                data: { labels: [], datasets: [{ data: [], backgroundColor: coresHex, borderWidth: 0 }] },
                 options: { responsive: true, maintainAspectRatio: false, cutout: '60%' }
             });
 
@@ -579,6 +580,9 @@
             });
         });
 
+        // ==========================================
+        // GERAÇÃO DE PDF OTIMIZADA E CORRIGIDA AQUI
+        // ==========================================
         window.gerarPDF = function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -590,10 +594,16 @@
             filtrados.sort((a, b) => new Date(a.data) - new Date(b.data));
 
             let ent = 0, sai = 0;
+            let mapaPdf = {}; // Para gerar a legenda manual com valores
             
             const corpoTabela = filtrados.map(t => {
                 const val = parseFloat(t.valor);
+                
+                if(!mapaPdf[t.categoria]) mapaPdf[t.categoria] = 0;
+                mapaPdf[t.categoria] += val;
+
                 t.tipo === 'entrada' ? ent += val : sai += val;
+                
                 const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
                 const sinal = t.tipo === 'entrada' ? '+' : '-';
                 return [
@@ -607,6 +617,7 @@
 
             const dizimistasPeriodo = [...new Set(filtrados.filter(t => t.tipo === 'entrada' && t.membro).map(t => t.membro))];
 
+            // 1. Cabeçalho
             doc.setFontSize(16);
             doc.setFont(undefined, 'bold');
             doc.text(tituloDoc, 14, 20);
@@ -614,22 +625,49 @@
             doc.setFont(undefined, 'normal');
             doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
 
+            // 2. Gráfico de Pizza (Renderizado maior no PDF)
             const canvasPie = document.getElementById('pieChart');
             const imgPie = canvasPie.toDataURL('image/png', 1.0);
             
             const proporcao = canvasPie.width / canvasPie.height;
-            const larguraPdf = 75;
+            const larguraPdf = 95; // AUMENTADO PARA NÃO FICAR PEQUENO
             const alturaPdf = larguraPdf / proporcao;
 
             doc.addImage(imgPie, 'PNG', 14, 32, larguraPdf, alturaPdf);
 
+            // 3. Legenda Personalizada (Com os Valores das Categorias)
+            const keysPdf = Object.keys(mapaPdf);
+            const valuesPdf = Object.values(mapaPdf);
+            let yLegenda = 38;
+            
+            doc.setFontSize(10);
+            keysPdf.forEach((cat, idx) => {
+                const hex = coresHex[idx % coresHex.length];
+                const r = parseInt(hex.substring(1,3), 16);
+                const g = parseInt(hex.substring(3,5), 16);
+                const b = parseInt(hex.substring(5,7), 16);
+                
+                // Desenha um quadrado colorido
+                doc.setFillColor(r, g, b);
+                doc.rect(115, yLegenda - 3, 4, 4, 'F'); 
+                
+                // Escreve a categoria e o valor correspondente
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'normal');
+                doc.text(`${cat}: R$ ${valuesPdf[idx].toFixed(2)}`, 122, yLegenda);
+                yLegenda += 6;
+            });
+
+            // 4. Resumo de Saldos
+            let yResumo = Math.max(yLegenda + 6, 60);
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
-            doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 95, 45);
-            doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 95, 55);
-            doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 95, 65);
+            doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 115, yResumo);
+            doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 115, yResumo + 8);
+            doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 115, yResumo + 16);
 
-            const inicioTabela = Math.max(90, 32 + alturaPdf + 10);
+            // 5. Tabela de Lançamentos
+            const inicioTabela = Math.max(32 + alturaPdf + 10, yResumo + 26);
             
             doc.autoTable({
                 startY: inicioTabela,
@@ -643,6 +681,7 @@
 
             let finalY = doc.lastAutoTable.finalY || inicioTabela;
 
+            // 6. Lista de Dizimistas
             if (dizimistasPeriodo.length > 0) {
                 if (finalY > 250) { doc.addPage(); finalY = 20; }
                 
@@ -661,6 +700,7 @@
                 finalY = yDizimista;
             }
 
+            // 7. Linha de Assinatura
             if (finalY > 260) { doc.addPage(); finalY = 20; }
             doc.setLineWidth(0.5);
             doc.line(70, finalY + 30, 140, finalY + 30);
@@ -671,7 +711,6 @@
             doc.save(`Relatorio_${tituloDoc.replace(/ /g, '_')}.pdf`);
         }
 
-        // ESSE CÓDIGO AQUI OBRIGA O NAVEGADOR A PUXAR SEMPRE A VERSÃO NOVA:
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(reg => {
                 reg.update();

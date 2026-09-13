@@ -24,12 +24,10 @@
         header { background-color: var(--white); padding: 15px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
         .container { padding: 15px; }
         
-        /* Abas */
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* UI */
         select, input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; background: var(--white); }
         .summary-cards { display: grid; gap: 15px; margin-bottom: 20px; }
         .card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--primary); }
@@ -48,7 +46,6 @@
         .btn:active { transform: translateY(4px); box-shadow: none; }
         .btn-pdf { grid-column: span 2; background: var(--text-dark); color: var(--white); box-shadow: 0 4px 0 #1a252f; }
         
-        /* Listas */
         .list-item { background: var(--white); padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); }
         .list-item .info h4 { margin-bottom: 3px; }
         .list-item .info p { font-size: 0.8rem; color: var(--text-light); }
@@ -56,18 +53,15 @@
         .val-saida { color: var(--danger); font-weight: bold; }
         .tag-filial { background: #eee; padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; color: #555; }
 
-        /* Filtros de Tempo */
         .time-filters { display: flex; gap: 10px; margin-bottom: 15px; }
         .time-btn { flex: 1; padding: 8px; border: none; border-radius: 8px; background-color: #ddd; color: var(--text-dark); font-weight: bold; cursor: pointer; }
         .time-btn.active { background-color: var(--text-dark); color: var(--white); }
 
-        /* Menu Inferior */
         .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--white); display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); border-radius: 20px 20px 0 0; z-index: 100; }
         .nav-item { display: flex; flex-direction: column; align-items: center; color: var(--text-light); font-size: 0.75rem; text-decoration: none; cursor: pointer; }
         .nav-item.active { color: var(--primary-dark); font-weight: bold; }
         .nav-item i { font-size: 1.2rem; margin-bottom: 3px; }
 
-        /* Modal */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; }
         .modal { background: var(--white); padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; }
         .modal h2 { margin-bottom: 15px; }
@@ -82,18 +76,13 @@
     </header>
 
     <div class="container">
-        <!-- ================= ABA 1: DASHBOARD ================= -->
         <div id="tab-inicio" class="tab-content active">
-            <select id="filialFilter">
-                <option value="todas">🏢 Visão Global (Todas as Filiais)</option>
-            </select>
-
+            <select id="filialFilter"><option value="todas">🏢 Visão Global (Todas as Filiais)</option></select>
             <div class="action-buttons">
                 <button class="btn" onclick="abrirModalTransacao('entrada')"><i class="fas fa-arrow-down"></i> Entrada</button>
                 <button class="btn" onclick="abrirModalTransacao('saida')" style="background: #ecf0f1; box-shadow: 0 4px 0 #bdc3c7;"><i class="fas fa-arrow-up"></i> Saída</button>
                 <button class="btn btn-pdf" onclick="gerarPDF()"><i class="fas fa-file-pdf"></i> Gerar Relatório PDF</button>
             </div>
-
             <div class="summary-cards">
                 <div class="card">
                     <h3>Saldo Atual</h3>
@@ -101,17 +90,13 @@
                 </div>
                 <div class="grid-2">
                     <div class="card success" style="padding: 15px;">
-                        <h3>Entradas</h3>
-                        <div class="amount" id="entradasTotal" style="font-size: 1.2rem;">R$ 0,00</div>
+                        <h3>Entradas</h3><div class="amount" id="entradasTotal" style="font-size: 1.2rem;">R$ 0,00</div>
                     </div>
                     <div class="card danger" style="padding: 15px;">
-                        <h3>Saídas</h3>
-                        <div class="amount" id="saidasTotal" style="font-size: 1.2rem;">R$ 0,00</div>
+                        <h3>Saídas</h3><div class="amount" id="saidasTotal" style="font-size: 1.2rem;">R$ 0,00</div>
                     </div>
                 </div>
             </div>
-
-            <!-- Gráfico de Barras -->
             <div class="chart-container">
                 <h3>Evolução de Entradas</h3>
                 <div class="time-filters">
@@ -119,39 +104,39 @@
                     <button class="time-btn active" onclick="mudarTempo('mes', this)">Mês</button>
                     <button class="time-btn" onclick="mudarTempo('ano', this)">Ano</button>
                 </div>
-                <div class="chart-wrapper">
-                    <canvas id="barChart"></canvas>
-                </div>
+                <div class="chart-wrapper"><canvas id="barChart"></canvas></div>
             </div>
-
-            <!-- Gráfico de Pizza -->
             <div class="chart-container">
                 <h3>Distribuição Financeira</h3>
-                <div class="chart-wrapper">
-                    <canvas id="pieChart"></canvas>
-                </div>
+                <div class="chart-wrapper"><canvas id="pieChart"></canvas></div>
             </div>
         </div>
 
-        <!-- ================= ABA 2: LANÇAMENTOS ================= -->
         <div id="tab-lancamentos" class="tab-content">
             <h2 style="margin-bottom: 15px;">Histórico de Lançamentos</h2>
             <div id="listaTransacoes"></div>
         </div>
 
-        <!-- ================= ABA 3: MEMBROS ================= -->
         <div id="tab-membros" class="tab-content">
             <h2 style="margin-bottom: 15px;">Gestão de Membros</h2>
-            <button class="btn" style="width: 100%; margin-bottom: 15px;" onclick="abrirModalMembro()">
-                <i class="fas fa-user-plus"></i> Novo Membro
-            </button>
+            <button class="btn" style="width: 100%; margin-bottom: 15px;" onclick="abrirModalMembro()"><i class="fas fa-user-plus"></i> Novo Membro</button>
             <div id="listaMembros"></div>
         </div>
 
-        <!-- ================= ABA 4: AJUSTES ================= -->
         <div id="tab-ajustes" class="tab-content">
             <h2 style="margin-bottom: 15px;">Configurações</h2>
             
+            <div class="card" style="border-left: none; margin-bottom: 15px;">
+                <h3 style="margin-bottom: 15px; color: var(--text-dark);">Dados Gerais</h3>
+                <form id="formAjustes">
+                    <div class="form-group">
+                        <label>Nome Oficial (Cabeçalho)</label>
+                        <input type="text" id="configNomeIgreja" placeholder="Ex: Igreja Evangélica Sede" required>
+                    </div>
+                    <button type="submit" class="btn" style="width: 100%;" id="btnSalvarAjustes">Salvar Cabeçalho</button>
+                </form>
+            </div>
+
             <div class="card" style="border-left: none; margin-bottom: 15px;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Gestão de Congregações</h3>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -176,7 +161,6 @@
         </div>
     </div>
 
-    <!-- NAVEGAÇÃO INFERIOR -->
     <nav class="bottom-nav">
         <a class="nav-item active" data-target="tab-inicio"><i class="fas fa-chart-pie"></i> Início</a>
         <a class="nav-item" data-target="tab-lancamentos"><i class="fas fa-exchange-alt"></i> Lançamentos</a>
@@ -184,18 +168,15 @@
         <a class="nav-item" data-target="tab-ajustes"><i class="fas fa-cog"></i> Ajustes</a>
     </nav>
 
-    <!-- MODAL DE NOVA TRANSAÇÃO -->
     <div class="modal-overlay" id="transacaoModal">
         <div class="modal">
             <h2 id="modalTitle">Novo Lançamento</h2>
             <form id="formTransacao">
                 <input type="hidden" id="formTipo">
-                
                 <div class="form-group">
                     <label>Data</label>
                     <input type="date" id="formData" required>
                 </div>
-
                 <div class="form-group">
                     <label>Filial</label>
                     <select id="formFilial" required></select>
@@ -206,9 +187,7 @@
                 </div>
                 <div class="form-group" id="grupoMembro" style="display:none;">
                     <label>Dizimante / Membro Vinculado</label>
-                    <select id="formMembroRef">
-                        <option value="">Nenhum (Anônimo)</option>
-                    </select>
+                    <select id="formMembroRef"><option value="">Nenhum (Anônimo)</option></select>
                 </div>
                 <div class="form-group">
                     <label>Valor (R$)</label>
@@ -226,7 +205,6 @@
         </div>
     </div>
 
-    <!-- MODAL DE MEMBRO (Criar e Editar) -->
     <div class="modal-overlay" id="membroModal">
         <div class="modal">
             <h2 id="membroModalTitle">Cadastrar Membro</h2>
@@ -252,10 +230,10 @@
         </div>
     </div>
 
-    <!-- SCRIPT PRINCIPAL -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        // ADICIONEI O setDoc AQUI NA IMPORTAÇÃO!
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAAs_xAn17BI0Fk_eZ7ZwMjEJx3wmkluWU",
@@ -296,7 +274,6 @@
         }
         initCharts();
 
-        // 1. FILIAIS
         onSnapshot(query(collection(db, "filiais")), (snapshot) => {
             let optionsFiltro = '<option value="todas">🏢 Visão Global (Todas as Filiais)</option>';
             let optionsForm = '';
@@ -320,15 +297,12 @@
             atualizarTela();
         });
 
-        // 2. CATEGORIAS
         onSnapshot(query(collection(db, "categorias")), (snapshot) => {
             catEntradas = []; catSaidas = [];
             let htmlAdmin = '';
-            
             snapshot.forEach((docSnap) => {
                 const c = docSnap.data();
                 if(c.tipo === 'entrada') catEntradas.push(c.nome); else catSaidas.push(c.nome);
-                
                 const badge = c.tipo === 'entrada' ? '<span class="val-entrada">Entrada</span>' : '<span class="val-saida">Saída</span>';
                 htmlAdmin += `<div class="list-item" style="padding: 10px; margin-bottom: 5px; box-shadow: none; border: 1px solid #eee;">
                         <span>${c.nome} ${badge}</span>
@@ -340,7 +314,6 @@
             document.getElementById('listaCategoriasAjustes').innerHTML = htmlAdmin || '<p style="font-size: 0.8rem; color: #777;">Nenhuma categoria criada.</p>';
         });
 
-        // 3. MEMBROS (com suporte a edição)
         onSnapshot(query(collection(db, "membros")), (snapshot) => {
             let htmlMembros = '';
             let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
@@ -377,7 +350,6 @@
             document.getElementById('formMembroTel').value = telefone;
         }
 
-        // 4. TRANSAÇÕES
         onSnapshot(query(collection(db, "transacoes")), (snapshot) => {
             todasTransacoes = [];
             snapshot.forEach((docSnap) => todasTransacoes.push({ id: docSnap.id, ...docSnap.data() }));
@@ -477,7 +449,6 @@
             atualizarTela();
         }
 
-        // CRUD GERAL
         window.adicionarFilial = async function() {
             try {
                 const input = document.getElementById('novaFilialNome');
@@ -506,7 +477,6 @@
             }
         }
 
-        // MODAIS E FORMULÁRIOS
         window.fecharModais = function() {
             document.getElementById('transacaoModal').style.display = 'none';
             document.getElementById('membroModal').style.display = 'none';
@@ -581,7 +551,6 @@
             fecharModais();
         });
 
-        // 5. CONFIGURAÇÕES GERAIS
         onSnapshot(doc(db, "configuracoes", "geral"), (docSnap) => {
             if (docSnap.exists()) {
                 const dados = docSnap.data();
@@ -598,7 +567,6 @@
             alert('Cabeçalho atualizado com sucesso!');
         });
 
-        // NAVEGAÇÃO
         const navItems = document.querySelectorAll('.nav-item');
         const tabContents = document.querySelectorAll('.tab-content');
         navItems.forEach(item => {
@@ -611,7 +579,6 @@
             });
         });
 
-        // GERAÇÃO DE PDF OTIMIZADA E CORRIGIDA
         window.gerarPDF = function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -620,8 +587,6 @@
             const tituloDoc = filtroAtual === 'todas' ? 'Relatório Geral' : (dicionarioFiliais[filtroAtual] || 'Relatório Financeiro');
             
             let filtrados = filtroAtual === 'todas' ? [...todasTransacoes] : todasTransacoes.filter(t => t.filial_id === filtroAtual);
-            
-            // Ordenar por data
             filtrados.sort((a, b) => new Date(a.data) - new Date(b.data));
 
             let ent = 0, sai = 0;
@@ -642,7 +607,6 @@
 
             const dizimistasPeriodo = [...new Set(filtrados.filter(t => t.tipo === 'entrada' && t.membro).map(t => t.membro))];
 
-            // 1. Cabeçalho
             doc.setFontSize(16);
             doc.setFont(undefined, 'bold');
             doc.text(tituloDoc, 14, 20);
@@ -650,25 +614,21 @@
             doc.setFont(undefined, 'normal');
             doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
 
-            // 2. Gráfico de Pizza
             const canvasPie = document.getElementById('pieChart');
             const imgPie = canvasPie.toDataURL('image/png', 1.0);
             
-            // Cálculo dinâmico para não distorcer
             const proporcao = canvasPie.width / canvasPie.height;
-            const larguraPdf = 75; // Largura do gráfico no PDF
+            const larguraPdf = 75;
             const alturaPdf = larguraPdf / proporcao;
 
             doc.addImage(imgPie, 'PNG', 14, 32, larguraPdf, alturaPdf);
 
-            // Resumo Lateral ao Gráfico
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
             doc.text(`Total Entradas: R$ ${ent.toFixed(2)}`, 95, 45);
             doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 95, 55);
             doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 95, 65);
 
-            // 3. Tabela Cronológica
             const inicioTabela = Math.max(90, 32 + alturaPdf + 10);
             
             doc.autoTable({
@@ -683,7 +643,6 @@
 
             let finalY = doc.lastAutoTable.finalY || inicioTabela;
 
-            // 4. Lista de Dizimistas
             if (dizimistasPeriodo.length > 0) {
                 if (finalY > 250) { doc.addPage(); finalY = 20; }
                 
@@ -702,7 +661,6 @@
                 finalY = yDizimista;
             }
 
-            // 5. Linha de Assinatura
             if (finalY > 260) { doc.addPage(); finalY = 20; }
             doc.setLineWidth(0.5);
             doc.line(70, finalY + 30, 140, finalY + 30);
@@ -713,8 +671,12 @@
             doc.save(`Relatorio_${tituloDoc.replace(/ /g, '_')}.pdf`);
         }
 
-        // ATIVAR PWA
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+        // ESSE CÓDIGO AQUI OBRIGA O NAVEGADOR A PUXAR SEMPRE A VERSÃO NOVA:
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                reg.update();
+            });
+        }
     </script>
 </body>
 </html>

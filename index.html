@@ -22,7 +22,7 @@
         body { background-color: var(--bg-color); color: var(--text-dark); padding-bottom: 70px; }
         
         header { background-color: var(--white); padding: 15px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-        .container { padding: 15px; }
+        .container { padding: 15px; display: none; /* Escondido até logar */ } 
         
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s; }
@@ -44,9 +44,10 @@
         .chart-container h3 { font-size: 1rem; margin-bottom: 15px; color: var(--text-dark); text-align: center; }
         
         .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; background: var(--primary); color: var(--text-dark); cursor: pointer; box-shadow: 0 4px 0 var(--primary-dark); transition: transform 0.1s; }
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; background: var(--primary); color: var(--text-dark); cursor: pointer; box-shadow: 0 4px 0 var(--primary-dark); transition: transform 0.1s; text-align: center; text-decoration: none;}
         .btn:active { transform: translateY(4px); box-shadow: none; }
         .btn-pdf { grid-column: span 2; background: var(--text-dark); color: var(--white); box-shadow: 0 4px 0 #1a252f; }
+        .btn-danger { background: var(--danger); color: var(--white); box-shadow: 0 4px 0 #c0392b; }
         
         .list-item { background: var(--white); padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); }
         .list-item .info h4 { margin-bottom: 3px; }
@@ -59,7 +60,7 @@
         .time-btn { flex: 1; padding: 8px; border: none; border-radius: 8px; background-color: #ddd; color: var(--text-dark); font-weight: bold; cursor: pointer; }
         .time-btn.active { background-color: var(--text-dark); color: var(--white); }
 
-        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--white); display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); border-radius: 20px 20px 0 0; z-index: 100; }
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--white); display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); border-radius: 20px 20px 0 0; z-index: 100; display: none; /* Escondido até logar */ }
         .nav-item { display: flex; flex-direction: column; align-items: center; color: var(--text-light); font-size: 0.75rem; text-decoration: none; cursor: pointer; }
         .nav-item.active { color: var(--primary-dark); font-weight: bold; }
         .nav-item i { font-size: 1.2rem; margin-bottom: 3px; }
@@ -68,19 +69,52 @@
         .modal { background: var(--white); padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; }
         .modal h2 { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
-        
         .filtros-lancamentos label { font-size: 0.75rem; font-weight: bold; color: var(--text-light); }
         .filtros-lancamentos input, .filtros-lancamentos select { padding: 10px; margin-bottom: 0; font-size: 0.9rem; }
+
+        /* Telas de Auth e Bloqueio */
+        .auth-screen, .block-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 500; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+        .auth-box { background: var(--white); padding: 30px; border-radius: 15px; box-shadow: var(--shadow); width: 100%; max-width: 400px; text-align: center; }
+        .auth-box h1 { margin-bottom: 20px; color: var(--text-dark); }
+        .auth-toggle { margin-top: 15px; color: var(--primary-dark); cursor: pointer; text-decoration: underline; font-size: 0.9rem; }
+        #installAppBtn { display: none; background: #2C3E50; color: #fff; padding: 10px 20px; border-radius: 20px; font-weight: bold; margin-bottom: 20px; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <header>
+    <!-- TELA DE AUTENTICAÇÃO -->
+    <div class="auth-screen" id="authScreen">
+        <button id="installAppBtn"><i class="fas fa-download"></i> Instalar Aplicativo</button>
+        <div class="auth-box">
+            <div style="width: 60px; height: 60px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--white); margin: 0 auto 15px auto;"><i class="fas fa-church"></i></div>
+            <h1 id="authTitle">Acessar Sistema</h1>
+            <form id="formAuth">
+                <input type="email" id="authEmail" placeholder="Seu E-mail" required>
+                <input type="password" id="authPassword" placeholder="Sua Senha" required>
+                <button type="submit" class="btn" style="width: 100%;" id="btnAuthAction">Entrar</button>
+            </form>
+            <p class="auth-toggle" id="btnToggleAuth" onclick="toggleAuthMode()">Não tem conta? Criar agora</p>
+        </div>
+    </div>
+
+    <!-- TELA DE BLOQUEIO (TRIAL EXPIRADO) -->
+    <div class="block-screen" id="blockScreen" style="display: none;">
+        <div class="auth-box" style="border-top: 5px solid var(--danger);">
+            <i class="fas fa-lock" style="font-size: 3rem; color: var(--danger); margin-bottom: 15px;"></i>
+            <h2 style="margin-bottom: 10px;">Período de Teste Expirado</h2>
+            <p style="color: var(--text-light); margin-bottom: 20px; font-size: 0.95rem;">Seu acesso gratuito de 30 dias chegou ao fim. Para continuar gerenciando sua igreja sem interrupções, reative sua assinatura.</p>
+            <a href="https://kirvano.com/seu-link" target="_blank" class="btn" style="display: block; width: 100%; margin-bottom: 10px; background: var(--success); color: white; box-shadow: 0 4px 0 #27ae60;">Renovar Acesso Agora</a>
+            <button class="btn btn-danger" style="width: 100%; box-shadow: none;" onclick="fazerLogout()">Sair da Conta</button>
+        </div>
+    </div>
+
+    <!-- APLICATIVO PRINCIPAL -->
+    <header id="mainHeader" style="display: none;">
         <h1 id="appTitle" style="font-size: 1.2rem;">Carregando...</h1>
-        <div style="width: 35px; height: 35px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">D</div>
+        <div onclick="fazerLogout()" style="width: 35px; height: 35px; background: #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--danger); cursor: pointer;"><i class="fas fa-sign-out-alt"></i></div>
     </header>
 
-    <div class="container">
+    <div class="container" id="mainContainer">
         <!-- ================= ABA 1: DASHBOARD ================= -->
         <div id="tab-inicio" class="tab-content active">
             <select id="filialFilter"><option value="todas">🏢 Visão Global (Todas as Filiais)</option></select>
@@ -127,19 +161,11 @@
             <div class="card filtros-lancamentos" style="border-left: none; margin-bottom: 15px; padding: 15px;">
                 <h3 style="margin-bottom: 10px; color: var(--text-dark); text-transform: none;">Filtros de Pesquisa</h3>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                    <div>
-                        <label>Data Início</label>
-                        <input type="date" id="filtroLanInicio">
-                    </div>
-                    <div>
-                        <label>Data Fim</label>
-                        <input type="date" id="filtroLanFim">
-                    </div>
+                    <div><label>Data Início</label><input type="date" id="filtroLanInicio"></div>
+                    <div><label>Data Fim</label><input type="date" id="filtroLanFim"></div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <select id="filtroLanFilial">
-                        <option value="todas">Todas as Filiais</option>
-                    </select>
+                    <select id="filtroLanFilial"><option value="todas">Todas as Filiais</option></select>
                     <select id="filtroLanTipo">
                         <option value="todos">Todas</option>
                         <option value="entrada">Entradas</option>
@@ -153,40 +179,38 @@
         <!-- ================= ABA 3: MEMBROS ================= -->
         <div id="tab-membros" class="tab-content">
             <button class="btn" style="width: 100%; margin-bottom: 15px;" onclick="abrirModalMembro()"><i class="fas fa-user-plus"></i> Novo Membro</button>
-            
             <div class="card filtros-lancamentos" style="border-left: none; margin-bottom: 15px; padding: 15px;">
                 <label>Filtrar por Congregação</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <select id="filtroMemFilial" style="margin-bottom: 0; flex: 1;">
-                        <option value="todas">Todas as Filiais</option>
-                    </select>
-                    <button class="btn btn-pdf" style="margin-bottom: 0; padding: 10px; box-shadow: none;" onclick="gerarPDFMembros()">
-                        <i class="fas fa-file-pdf"></i> PDF
-                    </button>
+                    <select id="filtroMemFilial" style="margin-bottom: 0; flex: 1;"><option value="todas">Todas as Filiais</option></select>
+                    <button class="btn btn-pdf" style="margin-bottom: 0; padding: 10px; box-shadow: none;" onclick="gerarPDFMembros()"><i class="fas fa-file-pdf"></i> PDF</button>
                 </div>
             </div>
-
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2 style="font-size: 1.1rem; margin: 0;">Cadastros</h2>
                 <span style="background: var(--primary); padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.8rem; color: var(--text-dark);" id="totalMembros">0</span>
             </div>
-            
             <div id="listaMembros"></div>
         </div>
 
         <!-- ================= ABA 4: AJUSTES ================= -->
         <div id="tab-ajustes" class="tab-content">
             <h2 style="margin-bottom: 15px;">Configurações</h2>
+            
+            <div class="card" style="border-left: none; margin-bottom: 15px; background: #fff3cd; border: 1px solid #ffeeba;">
+                <h3 style="margin-bottom: 10px; color: #856404; text-transform: none;"><i class="fas fa-exclamation-triangle"></i> Migração de Dados</h3>
+                <p style="font-size: 0.8rem; color: #856404; margin-bottom: 10px;">Se você usava o app antes de criar esta conta, clique abaixo para vincular os dados antigos ao seu novo usuário seguro.</p>
+                <button class="btn" style="width: 100%; background: #ffc107;" onclick="migrarDadosAntigos()">Vincular Dados Antigos</button>
+            </div>
+
             <div class="card" style="border-left: none; margin-bottom: 15px;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Dados Gerais</h3>
                 <form id="formAjustes">
-                    <div class="form-group">
-                        <label>Nome Oficial (Cabeçalho)</label>
-                        <input type="text" id="configNomeIgreja" placeholder="Ex: Igreja Evangélica Sede" required>
-                    </div>
+                    <div class="form-group"><label>Nome Oficial (Cabeçalho)</label><input type="text" id="configNomeIgreja" placeholder="Ex: Igreja Evangélica Sede" required></div>
                     <button type="submit" class="btn" style="width: 100%;" id="btnSalvarAjustes">Salvar Cabeçalho</button>
                 </form>
             </div>
+
             <div class="card" style="border-left: none; margin-bottom: 15px;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Gestão de Congregações</h3>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -195,14 +219,12 @@
                 </div>
                 <div id="listaFiliaisAjustes"></div>
             </div>
+
             <div class="card" style="border-left: none;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Gestão de Categorias</h3>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                     <input type="text" id="novaCatNome" placeholder="Nova Categoria" style="margin-bottom: 0;">
-                    <select id="novaCatTipo" style="margin-bottom: 0;">
-                        <option value="entrada">Entrada</option>
-                        <option value="saida">Saída</option>
-                    </select>
+                    <select id="novaCatTipo" style="margin-bottom: 0;"><option value="entrada">Entrada</option><option value="saida">Saída</option></select>
                 </div>
                 <button class="btn" onclick="adicionarCategoria()" id="btnAddCat" style="width:100%; margin-bottom: 15px;">Adicionar Categoria</button>
                 <div id="listaCategoriasAjustes"></div>
@@ -210,8 +232,7 @@
         </div>
     </div>
 
-    <!-- NAVEGAÇÃO INFERIOR -->
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" id="mainNav">
         <a class="nav-item active" data-target="tab-inicio"><i class="fas fa-chart-pie"></i> Início</a>
         <a class="nav-item" data-target="tab-lancamentos"><i class="fas fa-exchange-alt"></i> Lançamentos</a>
         <a class="nav-item" data-target="tab-membros"><i class="fas fa-users"></i> Membros</a>
@@ -219,7 +240,6 @@
     </nav>
 
     <!-- MODAIS DE CADASTRO -->
-    <!-- (Mantidos inalterados - Transação e Membros) -->
     <div class="modal-overlay" id="transacaoModal">
         <div class="modal">
             <h2 id="modalTitle">Novo Lançamento</h2>
@@ -258,7 +278,8 @@
     <!-- SCRIPT PRINCIPAL -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAAs_xAn17BI0Fk_eZ7ZwMjEJx3wmkluWU",
@@ -271,8 +292,12 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
         // VARIÁVEIS GLOBAIS
+        let usuarioLogado = null;
+        let unsubscribeListeners = []; // Para limpar leituras do banco ao deslogar
+        
         let todasTransacoes = [];
         let todosMembros = [];
         let dicionarioFiliais = {};
@@ -285,7 +310,7 @@
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const coresHex = ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6', '#3498db', '#9b59b6'];
 
-        // PREENCHER DATAS INICIAIS (Aba Lançamentos)
+        // PREENCHER DATAS INICIAIS
         const dateNow = new Date();
         const firstDay = new Date(dateNow.getFullYear(), dateNow.getMonth(), 1).toISOString().split('T')[0];
         const lastDay = new Date(dateNow.getFullYear(), dateNow.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -310,70 +335,220 @@
         }
         initCharts();
 
-        // 1. FILIAIS
-        onSnapshot(query(collection(db, "filiais")), (snapshot) => {
-            let optionsFiltro = '<option value="todas">🏢 Visão Global (Todas as Filiais)</option>';
-            let optionsForm = '';
-            let htmlAdmin = '';
-            dicionarioFiliais = {};
+        // ==========================================
+        // SISTEMA DE AUTENTICAÇÃO E TRIAL
+        // ==========================================
+        let authMode = 'login'; // login ou register
 
-            snapshot.forEach((docSnap) => {
-                const f = docSnap.data();
-                dicionarioFiliais[docSnap.id] = f.nome;
-                optionsFiltro += `<option value="${docSnap.id}">📍 ${f.nome}</option>`;
-                optionsForm += `<option value="${docSnap.id}">${f.nome}</option>`;
-                htmlAdmin += `<div class="list-item" style="padding: 10px; margin-bottom: 5px; box-shadow: none; border: 1px solid #eee;">
-                        <span>${f.nome}</span>
-                        <button onclick="excluirItem('filiais', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
-                    </div>`;
-            });
-            
-            document.getElementById('filialFilter').innerHTML = optionsFiltro;
-            document.getElementById('filtroLanFilial').innerHTML = '<option value="todas">Todas as Filiais</option>' + optionsForm;
-            document.getElementById('filtroMemFilial').innerHTML = '<option value="todas">Todas as Filiais</option>' + optionsForm;
-            document.getElementById('formFilial').innerHTML = optionsForm;
-            document.getElementById('formMembroFilial').innerHTML = optionsForm;
-            document.getElementById('listaFiliaisAjustes').innerHTML = htmlAdmin;
-            
-            atualizarDashboard();
-            atualizarAbaLancamentos();
-            atualizarAbaMembros();
+        window.toggleAuthMode = function() {
+            authMode = authMode === 'login' ? 'register' : 'login';
+            document.getElementById('authTitle').innerText = authMode === 'login' ? 'Acessar Sistema' : 'Criar Nova Conta';
+            document.getElementById('btnAuthAction').innerText = authMode === 'login' ? 'Entrar' : 'Cadastrar';
+            document.getElementById('btnToggleAuth').innerText = authMode === 'login' ? 'Não tem conta? Criar agora' : 'Já tem conta? Fazer Login';
+        }
+
+        document.getElementById('formAuth').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPassword').value;
+            const btn = document.getElementById('btnAuthAction');
+            btn.innerText = 'Aguarde...';
+
+            try {
+                if(authMode === 'login') {
+                    await signInWithEmailAndPassword(auth, email, pass);
+                } else {
+                    await createUserWithEmailAndPassword(auth, email, pass);
+                }
+            } catch (error) {
+                alert("Erro: " + error.message);
+                btn.innerText = authMode === 'login' ? 'Entrar' : 'Cadastrar';
+            }
         });
 
-        // 2. CATEGORIAS
-        onSnapshot(query(collection(db, "categorias")), (snapshot) => {
-            catEntradas = []; catSaidas = [];
-            let htmlAdmin = '';
-            snapshot.forEach((docSnap) => {
-                const c = docSnap.data();
-                if(c.tipo === 'entrada') catEntradas.push(c.nome); else catSaidas.push(c.nome);
-                const badge = c.tipo === 'entrada' ? '<span class="val-entrada">Entrada</span>' : '<span class="val-saida">Saída</span>';
-                htmlAdmin += `<div class="list-item" style="padding: 10px; margin-bottom: 5px; box-shadow: none; border: 1px solid #eee;">
-                        <span>${c.nome} ${badge}</span>
-                        <button onclick="excluirItem('categorias', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
-                    </div>`;
-            });
-            if(catEntradas.length === 0) catEntradas = ['Dízimo', 'Oferta'];
-            if(catSaidas.length === 0) catSaidas = ['Manutenção'];
-            document.getElementById('listaCategoriasAjustes').innerHTML = htmlAdmin || '<p style="font-size: 0.8rem; color: #777;">Nenhuma categoria criada.</p>';
+        window.fazerLogout = function() {
+            signOut(auth);
+        }
+
+        // Observador de Estado de Login
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                usuarioLogado = user;
+                document.getElementById('authScreen').style.display = 'none';
+                
+                // Checagem de 30 Dias (Trial)
+                const userDocRef = doc(db, "usuarios", user.uid);
+                const userSnap = await getDoc(userDocRef);
+                
+                if (!userSnap.exists()) {
+                    // Novo usuário criado
+                    await setDoc(userDocRef, { dataCriacao: new Date().toISOString(), email: user.email });
+                    iniciarSistemaPrivado(user.uid);
+                } else {
+                    // Verifica há quantos dias foi criado
+                    const dataC = new Date(userSnap.data().dataCriacao);
+                    const hoje = new Date();
+                    const diffDias = Math.floor((hoje - dataC) / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDias > 30) {
+                        document.getElementById('blockScreen').style.display = 'flex';
+                        document.getElementById('mainHeader').style.display = 'none';
+                        document.getElementById('mainContainer').style.display = 'none';
+                        document.getElementById('mainNav').style.display = 'none';
+                    } else {
+                        iniciarSistemaPrivado(user.uid);
+                    }
+                }
+            } else {
+                usuarioLogado = null;
+                // Limpa ouvintes se houver
+                unsubscribeListeners.forEach(unsub => unsub());
+                unsubscribeListeners = [];
+                
+                document.getElementById('authScreen').style.display = 'flex';
+                document.getElementById('blockScreen').style.display = 'none';
+                document.getElementById('mainHeader').style.display = 'none';
+                document.getElementById('mainContainer').style.display = 'none';
+                document.getElementById('mainNav').style.display = 'none';
+            }
         });
 
-        // 3. MEMBROS
-        onSnapshot(query(collection(db, "membros")), (snapshot) => {
-            todosMembros = [];
-            let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
+        // ==========================================
+        // INICIA O SISTEMA PARA O USUÁRIO LOGADO
+        // ==========================================
+        function iniciarSistemaPrivado(uid) {
+            document.getElementById('mainHeader').style.display = 'flex';
+            document.getElementById('mainContainer').style.display = 'block';
+            document.getElementById('mainNav').style.display = 'flex';
 
-            snapshot.forEach(docSnap => todosMembros.push({ id: docSnap.id, ...docSnap.data() }));
-            todosMembros.sort((a, b) => a.nome.localeCompare(b.nome));
+            // 1. FILIAIS DO USUÁRIO
+            const qFiliais = query(collection(db, "filiais"), where("uid", "==", uid));
+            const unsubFiliais = onSnapshot(qFiliais, (snapshot) => {
+                let optionsFiltro = '<option value="todas">🏢 Visão Global (Todas as Filiais)</option>';
+                let optionsForm = '';
+                let htmlAdmin = '';
+                dicionarioFiliais = {};
 
-            todosMembros.forEach((m) => {
-                optionsMembros += `<option value="${m.nome}">${m.nome}</option>`;
+                snapshot.forEach((docSnap) => {
+                    const f = docSnap.data();
+                    dicionarioFiliais[docSnap.id] = f.nome;
+                    optionsFiltro += `<option value="${docSnap.id}">📍 ${f.nome}</option>`;
+                    optionsForm += `<option value="${docSnap.id}">${f.nome}</option>`;
+                    htmlAdmin += `<div class="list-item" style="padding: 10px; margin-bottom: 5px; box-shadow: none; border: 1px solid #eee;">
+                            <span>${f.nome}</span>
+                            <button onclick="excluirItem('filiais', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
+                        </div>`;
+                });
+                
+                document.getElementById('filialFilter').innerHTML = optionsFiltro;
+                document.getElementById('filtroLanFilial').innerHTML = '<option value="todas">Todas as Filiais</option>' + optionsForm;
+                document.getElementById('filtroMemFilial').innerHTML = '<option value="todas">Todas as Filiais</option>' + optionsForm;
+                document.getElementById('formFilial').innerHTML = optionsForm;
+                document.getElementById('formMembroFilial').innerHTML = optionsForm;
+                document.getElementById('listaFiliaisAjustes').innerHTML = htmlAdmin;
+                
+                atualizarDashboard();
+                atualizarAbaLancamentos();
+                atualizarAbaMembros();
             });
+            unsubscribeListeners.push(unsubFiliais);
+
+            // 2. CATEGORIAS DO USUÁRIO
+            const qCat = query(collection(db, "categorias"), where("uid", "==", uid));
+            const unsubCat = onSnapshot(qCat, (snapshot) => {
+                catEntradas = []; catSaidas = [];
+                let htmlAdmin = '';
+                snapshot.forEach((docSnap) => {
+                    const c = docSnap.data();
+                    if(c.tipo === 'entrada') catEntradas.push(c.nome); else catSaidas.push(c.nome);
+                    const badge = c.tipo === 'entrada' ? '<span class="val-entrada">Entrada</span>' : '<span class="val-saida">Saída</span>';
+                    htmlAdmin += `<div class="list-item" style="padding: 10px; margin-bottom: 5px; box-shadow: none; border: 1px solid #eee;">
+                            <span>${c.nome} ${badge}</span>
+                            <button onclick="excluirItem('categorias', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
+                        </div>`;
+                });
+                if(catEntradas.length === 0) catEntradas = ['Dízimo', 'Oferta'];
+                if(catSaidas.length === 0) catSaidas = ['Manutenção'];
+                document.getElementById('listaCategoriasAjustes').innerHTML = htmlAdmin || '<p style="font-size: 0.8rem; color: #777;">Nenhuma categoria criada.</p>';
+            });
+            unsubscribeListeners.push(unsubCat);
+
+            // 3. MEMBROS DO USUÁRIO
+            const qMembros = query(collection(db, "membros"), where("uid", "==", uid));
+            const unsubMembros = onSnapshot(qMembros, (snapshot) => {
+                todosMembros = [];
+                let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
+
+                snapshot.forEach(docSnap => todosMembros.push({ id: docSnap.id, ...docSnap.data() }));
+                todosMembros.sort((a, b) => a.nome.localeCompare(b.nome));
+
+                todosMembros.forEach((m) => {
+                    optionsMembros += `<option value="${m.nome}">${m.nome}</option>`;
+                });
+                
+                document.getElementById('formMembroRef').innerHTML = optionsMembros;
+                atualizarAbaMembros();
+            });
+            unsubscribeListeners.push(unsubMembros);
+
+            // 4. TRANSAÇÕES DO USUÁRIO
+            const qTransacoes = query(collection(db, "transacoes"), where("uid", "==", uid));
+            const unsubTrans = onSnapshot(qTransacoes, (snapshot) => {
+                todasTransacoes = [];
+                snapshot.forEach((docSnap) => todasTransacoes.push({ id: docSnap.id, ...docSnap.data() }));
+                todasTransacoes.sort((a, b) => new Date(b.data) - new Date(a.data));
+                atualizarDashboard();
+                atualizarAbaLancamentos();
+            });
+            unsubscribeListeners.push(unsubTrans);
+
+            // 5. CONFIGURAÇÕES DO USUÁRIO
+            const unsubConfig = onSnapshot(doc(db, "configuracoes", uid), (docSnap) => {
+                if (docSnap.exists()) {
+                    const dados = docSnap.data();
+                    document.getElementById('appTitle').innerText = dados.nomeIgreja || 'Sistema Financeiro';
+                    document.getElementById('configNomeIgreja').value = dados.nomeIgreja || '';
+                } else {
+                    document.getElementById('appTitle').innerText = 'Sistema Financeiro';
+                }
+            });
+            unsubscribeListeners.push(unsubConfig);
+        }
+
+        // ==========================================
+        // SCRIPT DE MIGRAÇÃO (USO ÚNICO PELO ADMIN ORIGINAL)
+        // ==========================================
+        window.migrarDadosAntigos = async function() {
+            if(!confirm("Atenção: Isso vai buscar dados antigos sem dono e vincular permanentemente a sua conta atual. Deseja continuar?")) return;
             
-            document.getElementById('formMembroRef').innerHTML = optionsMembros;
-            atualizarAbaMembros();
-        });
+            try {
+                let count = 0;
+                const colecoes = ['transacoes', 'membros', 'filiais', 'categorias'];
+                for (let col of colecoes) {
+                    const snap = await getDocs(collection(db, col));
+                    for (let d of snap.docs) {
+                        if (!d.data().uid) { // Se não tem dono
+                            await updateDoc(doc(db, col, d.id), { uid: usuarioLogado.uid });
+                            count++;
+                        }
+                    }
+                }
+                
+                // Puxar também a configuração global antiga se existir
+                const confAntiga = await getDoc(doc(db, "configuracoes", "geral"));
+                if(confAntiga.exists() && confAntiga.data().nomeIgreja) {
+                    await setDoc(doc(db, "configuracoes", usuarioLogado.uid), { nomeIgreja: confAntiga.data().nomeIgreja }, { merge: true });
+                }
 
+                alert(`Migração Concluída! ${count} registros foram vinculados a sua conta.`);
+            } catch (error) {
+                alert("Erro ao migrar dados: " + error.message);
+            }
+        }
+
+        // ==========================================
+        // ATUALIZAÇÃO DA INTERFACE (FUNÇÕES PURAS)
+        // ==========================================
         function atualizarAbaMembros() {
             const fFilial = document.getElementById('filtroMemFilial').value;
             let filtrados = fFilial === 'todas' ? todosMembros : todosMembros.filter(m => m.filial_id === fFilial);
@@ -398,32 +573,10 @@
         }
         document.getElementById('filtroMemFilial').addEventListener('change', atualizarAbaMembros);
 
-        window.editarMembro = function(id, nome, filial_id, telefone) {
-            document.getElementById('membroModal').style.display = 'flex';
-            document.getElementById('membroModalTitle').innerText = 'Editar Membro';
-            document.getElementById('formMembroId').value = id;
-            document.getElementById('formMembroNome').value = nome;
-            document.getElementById('formMembroFilial').value = filial_id;
-            document.getElementById('formMembroTel').value = telefone;
-        }
-
-        // 4. TRANSAÇÕES (Dados Globais)
-        onSnapshot(query(collection(db, "transacoes")), (snapshot) => {
-            todasTransacoes = [];
-            snapshot.forEach((docSnap) => todasTransacoes.push({ id: docSnap.id, ...docSnap.data() }));
-            todasTransacoes.sort((a, b) => new Date(b.data) - new Date(a.data));
-            atualizarDashboard();
-            atualizarAbaLancamentos();
-        });
-
-        // ==========================================
-        // ATUALIZAÇÃO DA ABA DASHBOARD (INÍCIO)
-        // ==========================================
         function atualizarDashboard() {
             const filtroFilial = document.getElementById('filialFilter').value;
             let dadosBase = filtroFilial === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroFilial);
             
-            // Filtro de Tempo (Aplica Saldo e Gráficos)
             const hoje = new Date();
             hoje.setHours(0,0,0,0);
             
@@ -455,12 +608,10 @@
             document.getElementById('saidasTotal').innerText = formatarMoeda(sai);
             document.getElementById('saldoTotal').innerText = formatarMoeda(ent - sai);
 
-            // Atualiza Pizza
             pieChartInst.data.labels = Object.keys(mapaCategorias);
             pieChartInst.data.datasets[0].data = Object.values(mapaCategorias);
             pieChartInst.update();
 
-            // Atualiza Barras
             atualizarGraficoBarras(dadosFiltradosTempo, hoje);
         }
 
@@ -502,9 +653,6 @@
         }
         document.getElementById('filialFilter').addEventListener('change', atualizarDashboard);
 
-        // ==========================================
-        // ATUALIZAÇÃO DA ABA LANÇAMENTOS (Com Filtros)
-        // ==========================================
         function atualizarAbaLancamentos() {
             const fIni = document.getElementById('filtroLanInicio').value;
             const fFim = document.getElementById('filtroLanFim').value;
@@ -551,20 +699,12 @@
 
 
         // ==========================================
-        // CONFIGURAÇÕES, GERAIS E CRUD
+        // CRUD (Salvando com o ID do Usuário)
         // ==========================================
-        onSnapshot(doc(db, "configuracoes", "geral"), (docSnap) => {
-            if (docSnap.exists()) {
-                const dados = docSnap.data();
-                document.getElementById('appTitle').innerText = dados.nomeIgreja || 'Sistema IEAD';
-                document.getElementById('configNomeIgreja').value = dados.nomeIgreja || '';
-            }
-        });
-
         document.getElementById('formAjustes').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
-            await setDoc(doc(db, "configuracoes", "geral"), { nomeIgreja: document.getElementById('configNomeIgreja').value }, { merge: true });
+            await setDoc(doc(db, "configuracoes", usuarioLogado.uid), { nomeIgreja: document.getElementById('configNomeIgreja').value }, { merge: true });
             document.getElementById('btnSalvarAjustes').innerText = 'Salvar Cabeçalho';
             alert('Cabeçalho atualizado com sucesso!');
         });
@@ -574,7 +714,7 @@
                 const input = document.getElementById('novaFilialNome');
                 if(!input.value) return alert('Digite o nome!');
                 document.getElementById('btnAddFilial').innerText = '...';
-                await addDoc(collection(db, "filiais"), { nome: input.value });
+                await addDoc(collection(db, "filiais"), { nome: input.value, uid: usuarioLogado.uid });
                 input.value = '';
                 document.getElementById('btnAddFilial').innerText = 'Adicionar';
             } catch(e) { alert("Erro ao salvar filial."); }
@@ -585,7 +725,7 @@
                 const input = document.getElementById('novaCatNome');
                 if(!input.value) return alert('Digite o nome!');
                 document.getElementById('btnAddCat').innerText = '...';
-                await addDoc(collection(db, "categorias"), { nome: input.value, tipo: document.getElementById('novaCatTipo').value });
+                await addDoc(collection(db, "categorias"), { nome: input.value, tipo: document.getElementById('novaCatTipo').value, uid: usuarioLogado.uid });
                 input.value = '';
                 document.getElementById('btnAddCat').innerText = 'Adicionar Categoria';
             } catch(e) { alert("Erro ao salvar categoria."); }
@@ -597,7 +737,6 @@
             }
         }
 
-        // MODAIS E SALVAMENTOS
         window.fecharModais = function() {
             document.getElementById('transacaoModal').style.display = 'none';
             document.getElementById('membroModal').style.display = 'none';
@@ -622,13 +761,6 @@
             document.getElementById('grupoMembro').style.display = tipo === 'entrada' ? 'block' : 'none';
         }
 
-        window.abrirModalMembro = function() {
-            if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
-            document.getElementById('formMembroId').value = ''; 
-            document.getElementById('membroModalTitle').innerText = 'Cadastrar Membro';
-            document.getElementById('membroModal').style.display = 'flex';
-        }
-
         document.getElementById('formTransacao').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarTransacao').innerText = 'Salvando...';
@@ -639,7 +771,8 @@
                 categoria: document.getElementById('formCategoria').value,
                 valor: parseFloat(document.getElementById('formValor').value),
                 obs: document.getElementById('formObs').value,
-                data: document.getElementById('formData').value
+                data: document.getElementById('formData').value,
+                uid: usuarioLogado.uid
             };
 
             if(transacaoObj.tipo === 'entrada') {
@@ -651,6 +784,13 @@
             fecharModais();
         });
 
+        window.abrirModalMembro = function() {
+            if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
+            document.getElementById('formMembroId').value = ''; 
+            document.getElementById('membroModalTitle').innerText = 'Cadastrar Membro';
+            document.getElementById('membroModal').style.display = 'flex';
+        }
+
         document.getElementById('formMembro').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarMembro').innerText = 'Salvando...';
@@ -659,7 +799,8 @@
             const dadosMembro = {
                 nome: document.getElementById('formMembroNome').value,
                 filial_id: document.getElementById('formMembroFilial').value,
-                telefone: document.getElementById('formMembroTel').value
+                telefone: document.getElementById('formMembroTel').value,
+                uid: usuarioLogado.uid
             };
 
             if (membroId) {
@@ -695,7 +836,6 @@
             const filtroAtual = document.getElementById('filialFilter').value;
             const tituloDoc = filtroAtual === 'todas' ? 'Relatório Geral' : (dicionarioFiliais[filtroAtual] || 'Relatório Financeiro');
             
-            // Usa exatamente a regra de tempo do Dashboard
             const hoje = new Date();
             hoje.setHours(0,0,0,0);
             
@@ -856,7 +996,27 @@
             doc.save(`Lista_Membros.pdf`);
         }
 
-        // ATIVAR PWA
+        // ==========================================
+        // PWA - INSTALAÇÃO NATIVA
+        // ==========================================
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installAppBtn').style.display = 'block';
+        });
+
+        document.getElementById('installAppBtn').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    document.getElementById('installAppBtn').style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(reg => reg.update());
         }

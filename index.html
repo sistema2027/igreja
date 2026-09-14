@@ -28,7 +28,9 @@
         .tab-content.active { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        select, input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; background: var(--white); }
+        select, input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; background: var(--white); outline: none; }
+        select:focus, input:focus { border-color: var(--primary-dark); }
+        
         .summary-cards { display: grid; gap: 15px; margin-bottom: 20px; }
         .card { background: var(--white); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--primary); }
         .card.success { border-left-color: var(--success); }
@@ -42,7 +44,7 @@
         .chart-container h3 { font-size: 1rem; margin-bottom: 15px; color: var(--text-dark); text-align: center; }
         
         .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; background: var(--primary); color: var(--text-dark); cursor: pointer; box-shadow: 0 4px 0 var(--primary-dark); }
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; background: var(--primary); color: var(--text-dark); cursor: pointer; box-shadow: 0 4px 0 var(--primary-dark); transition: transform 0.1s; }
         .btn:active { transform: translateY(4px); box-shadow: none; }
         .btn-pdf { grid-column: span 2; background: var(--text-dark); color: var(--white); box-shadow: 0 4px 0 #1a252f; }
         
@@ -66,6 +68,9 @@
         .modal { background: var(--white); padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; }
         .modal h2 { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
+        
+        .filtros-lancamentos label { font-size: 0.75rem; font-weight: bold; color: var(--text-light); }
+        .filtros-lancamentos input, .filtros-lancamentos select { padding: 10px; margin-bottom: 0; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -82,11 +87,18 @@
             <div class="action-buttons">
                 <button class="btn" onclick="abrirModalTransacao('entrada')"><i class="fas fa-arrow-down"></i> Entrada</button>
                 <button class="btn" onclick="abrirModalTransacao('saida')" style="background: #ecf0f1; box-shadow: 0 4px 0 #bdc3c7;"><i class="fas fa-arrow-up"></i> Saída</button>
-                <button class="btn btn-pdf" onclick="gerarPDF()"><i class="fas fa-file-pdf"></i> Gerar Relatório PDF</button>
+                <button class="btn btn-pdf" onclick="gerarPDFTransacoes()"><i class="fas fa-file-pdf"></i> Gerar Relatório PDF</button>
             </div>
+            
+            <div class="time-filters">
+                <button class="time-btn" onclick="mudarTempo('semana', this)">Semana</button>
+                <button class="time-btn active" onclick="mudarTempo('mes', this)">Mês</button>
+                <button class="time-btn" onclick="mudarTempo('ano', this)">Ano</button>
+            </div>
+
             <div class="summary-cards">
                 <div class="card">
-                    <h3>Saldo Atual</h3>
+                    <h3>Saldo do Período</h3>
                     <div class="amount" id="saldoTotal">R$ 0,00</div>
                 </div>
                 <div class="grid-2">
@@ -98,35 +110,73 @@
                     </div>
                 </div>
             </div>
-            <div class="chart-container">
-                <h3>Evolução de Entradas</h3>
-                <div class="time-filters">
-                    <button class="time-btn" onclick="mudarTempo('semana', this)">Semana</button>
-                    <button class="time-btn active" onclick="mudarTempo('mes', this)">Mês</button>
-                    <button class="time-btn" onclick="mudarTempo('ano', this)">Ano</button>
-                </div>
-                <div class="chart-wrapper"><canvas id="barChart"></canvas></div>
-            </div>
+
             <div class="chart-container">
                 <h3>Distribuição Financeira</h3>
                 <div class="chart-wrapper"><canvas id="pieChart"></canvas></div>
             </div>
+
+            <div class="chart-container">
+                <h3>Evolução de Entradas</h3>
+                <div class="chart-wrapper"><canvas id="barChart"></canvas></div>
+            </div>
         </div>
 
+        <!-- ================= ABA 2: LANÇAMENTOS ================= -->
         <div id="tab-lancamentos" class="tab-content">
-            <h2 style="margin-bottom: 15px;">Histórico de Lançamentos</h2>
+            <div class="card filtros-lancamentos" style="border-left: none; margin-bottom: 15px; padding: 15px;">
+                <h3 style="margin-bottom: 10px; color: var(--text-dark); text-transform: none;">Filtros de Pesquisa</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div>
+                        <label>Data Início</label>
+                        <input type="date" id="filtroLanInicio">
+                    </div>
+                    <div>
+                        <label>Data Fim</label>
+                        <input type="date" id="filtroLanFim">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <select id="filtroLanFilial">
+                        <option value="todas">Todas as Filiais</option>
+                    </select>
+                    <select id="filtroLanTipo">
+                        <option value="todos">Todas</option>
+                        <option value="entrada">Entradas</option>
+                        <option value="saida">Saídas</option>
+                    </select>
+                </div>
+            </div>
             <div id="listaTransacoes"></div>
         </div>
 
+        <!-- ================= ABA 3: MEMBROS ================= -->
         <div id="tab-membros" class="tab-content">
-            <h2 style="margin-bottom: 15px;">Gestão de Membros</h2>
             <button class="btn" style="width: 100%; margin-bottom: 15px;" onclick="abrirModalMembro()"><i class="fas fa-user-plus"></i> Novo Membro</button>
+            
+            <div class="card filtros-lancamentos" style="border-left: none; margin-bottom: 15px; padding: 15px;">
+                <label>Filtrar por Congregação</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="filtroMemFilial" style="margin-bottom: 0; flex: 1;">
+                        <option value="todas">Todas as Filiais</option>
+                    </select>
+                    <button class="btn btn-pdf" style="margin-bottom: 0; padding: 10px; box-shadow: none;" onclick="gerarPDFMembros()">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="font-size: 1.1rem; margin: 0;">Cadastros</h2>
+                <span style="background: var(--primary); padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.8rem; color: var(--text-dark);" id="totalMembros">0</span>
+            </div>
+            
             <div id="listaMembros"></div>
         </div>
 
+        <!-- ================= ABA 4: AJUSTES ================= -->
         <div id="tab-ajustes" class="tab-content">
             <h2 style="margin-bottom: 15px;">Configurações</h2>
-            
             <div class="card" style="border-left: none; margin-bottom: 15px;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Dados Gerais</h3>
                 <form id="formAjustes">
@@ -137,7 +187,6 @@
                     <button type="submit" class="btn" style="width: 100%;" id="btnSalvarAjustes">Salvar Cabeçalho</button>
                 </form>
             </div>
-
             <div class="card" style="border-left: none; margin-bottom: 15px;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Gestão de Congregações</h3>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -146,7 +195,6 @@
                 </div>
                 <div id="listaFiliaisAjustes"></div>
             </div>
-
             <div class="card" style="border-left: none;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Gestão de Categorias</h3>
                 <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -162,6 +210,7 @@
         </div>
     </div>
 
+    <!-- NAVEGAÇÃO INFERIOR -->
     <nav class="bottom-nav">
         <a class="nav-item active" data-target="tab-inicio"><i class="fas fa-chart-pie"></i> Início</a>
         <a class="nav-item" data-target="tab-lancamentos"><i class="fas fa-exchange-alt"></i> Lançamentos</a>
@@ -169,35 +218,19 @@
         <a class="nav-item" data-target="tab-ajustes"><i class="fas fa-cog"></i> Ajustes</a>
     </nav>
 
+    <!-- MODAIS DE CADASTRO -->
+    <!-- (Mantidos inalterados - Transação e Membros) -->
     <div class="modal-overlay" id="transacaoModal">
         <div class="modal">
             <h2 id="modalTitle">Novo Lançamento</h2>
             <form id="formTransacao">
                 <input type="hidden" id="formTipo">
-                <div class="form-group">
-                    <label>Data</label>
-                    <input type="date" id="formData" required>
-                </div>
-                <div class="form-group">
-                    <label>Filial</label>
-                    <select id="formFilial" required></select>
-                </div>
-                <div class="form-group">
-                    <label>Categoria</label>
-                    <select id="formCategoria" required></select>
-                </div>
-                <div class="form-group" id="grupoMembro" style="display:none;">
-                    <label>Dizimante / Membro Vinculado</label>
-                    <select id="formMembroRef"><option value="">Nenhum (Anônimo)</option></select>
-                </div>
-                <div class="form-group">
-                    <label>Valor (R$)</label>
-                    <input type="number" id="formValor" step="0.01" required placeholder="Ex: 150.00">
-                </div>
-                <div class="form-group">
-                    <label>Observação Extra (Opcional)</label>
-                    <input type="text" id="formObs" placeholder="Detalhe do lançamento">
-                </div>
+                <div class="form-group"><label>Data</label><input type="date" id="formData" required></div>
+                <div class="form-group"><label>Filial</label><select id="formFilial" required></select></div>
+                <div class="form-group"><label>Categoria</label><select id="formCategoria" required></select></div>
+                <div class="form-group" id="grupoMembro" style="display:none;"><label>Dizimante / Membro</label><select id="formMembroRef"><option value="">Nenhum (Anônimo)</option></select></div>
+                <div class="form-group"><label>Valor (R$)</label><input type="number" id="formValor" step="0.01" required placeholder="Ex: 150.00"></div>
+                <div class="form-group"><label>Observação</label><input type="text" id="formObs" placeholder="Detalhe do lançamento"></div>
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
                     <button type="button" class="btn" style="background: #ecf0f1; box-shadow: none; flex: 1;" onclick="fecharModais()">Cancelar</button>
                     <button type="submit" class="btn" style="flex: 1;" id="btnSalvarTransacao">Salvar</button>
@@ -211,18 +244,9 @@
             <h2 id="membroModalTitle">Cadastrar Membro</h2>
             <form id="formMembro">
                 <input type="hidden" id="formMembroId">
-                <div class="form-group">
-                    <label>Nome Completo</label>
-                    <input type="text" id="formMembroNome" required placeholder="Ex: João da Silva">
-                </div>
-                <div class="form-group">
-                    <label>Congregação</label>
-                    <select id="formMembroFilial" required></select>
-                </div>
-                <div class="form-group">
-                    <label>Telefone / Contato</label>
-                    <input type="text" id="formMembroTel" placeholder="(xx) xxxxx-xxxx">
-                </div>
+                <div class="form-group"><label>Nome Completo</label><input type="text" id="formMembroNome" required placeholder="Ex: João da Silva"></div>
+                <div class="form-group"><label>Congregação</label><select id="formMembroFilial" required></select></div>
+                <div class="form-group"><label>Telefone / Contato</label><input type="text" id="formMembroTel" placeholder="(xx) xxxxx-xxxx"></div>
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
                     <button type="button" class="btn" style="background: #ecf0f1; box-shadow: none; flex: 1;" onclick="fecharModais()">Cancelar</button>
                     <button type="submit" class="btn" style="flex: 1;" id="btnSalvarMembro">Salvar</button>
@@ -231,6 +255,7 @@
         </div>
     </div>
 
+    <!-- SCRIPT PRINCIPAL -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -247,7 +272,9 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // VARIÁVEIS GLOBAIS
         let todasTransacoes = [];
+        let todosMembros = [];
         let dicionarioFiliais = {};
         let catEntradas = [];
         let catSaidas = [];
@@ -258,6 +285,14 @@
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const coresHex = ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6', '#3498db', '#9b59b6'];
 
+        // PREENCHER DATAS INICIAIS (Aba Lançamentos)
+        const dateNow = new Date();
+        const firstDay = new Date(dateNow.getFullYear(), dateNow.getMonth(), 1).toISOString().split('T')[0];
+        const lastDay = new Date(dateNow.getFullYear(), dateNow.getMonth() + 1, 0).toISOString().split('T')[0];
+        document.getElementById('filtroLanInicio').value = firstDay;
+        document.getElementById('filtroLanFim').value = lastDay;
+
+        // INICIALIZAR GRÁFICOS
         function initCharts() {
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             pieChartInst = new Chart(ctxPie, {
@@ -275,6 +310,7 @@
         }
         initCharts();
 
+        // 1. FILIAIS
         onSnapshot(query(collection(db, "filiais")), (snapshot) => {
             let optionsFiltro = '<option value="todas">🏢 Visão Global (Todas as Filiais)</option>';
             let optionsForm = '';
@@ -291,13 +327,20 @@
                         <button onclick="excluirItem('filiais', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
                     </div>`;
             });
+            
             document.getElementById('filialFilter').innerHTML = optionsFiltro;
+            document.getElementById('filtroLanFilial').innerHTML = '<option value="todas">Todas as Filiais</option>' + optionsForm;
+            document.getElementById('filtroMemFilial').innerHTML = '<option value="todas">Todas as Filiais</option>' + optionsForm;
             document.getElementById('formFilial').innerHTML = optionsForm;
             document.getElementById('formMembroFilial').innerHTML = optionsForm;
             document.getElementById('listaFiliaisAjustes').innerHTML = htmlAdmin;
-            atualizarTela();
+            
+            atualizarDashboard();
+            atualizarAbaLancamentos();
+            atualizarAbaMembros();
         });
 
+        // 2. CATEGORIAS
         onSnapshot(query(collection(db, "categorias")), (snapshot) => {
             catEntradas = []; catSaidas = [];
             let htmlAdmin = '';
@@ -315,18 +358,31 @@
             document.getElementById('listaCategoriasAjustes').innerHTML = htmlAdmin || '<p style="font-size: 0.8rem; color: #777;">Nenhuma categoria criada.</p>';
         });
 
+        // 3. MEMBROS
         onSnapshot(query(collection(db, "membros")), (snapshot) => {
-            let htmlMembros = '';
+            todosMembros = [];
             let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
 
-            const membrosArr = [];
-            snapshot.forEach(docSnap => membrosArr.push({ id: docSnap.id, ...docSnap.data() }));
-            membrosArr.sort((a, b) => a.nome.localeCompare(b.nome));
+            snapshot.forEach(docSnap => todosMembros.push({ id: docSnap.id, ...docSnap.data() }));
+            todosMembros.sort((a, b) => a.nome.localeCompare(b.nome));
 
-            membrosArr.forEach((m) => {
+            todosMembros.forEach((m) => {
                 optionsMembros += `<option value="${m.nome}">${m.nome}</option>`;
-                const paramsEdit = `'${m.id}', '${m.nome.replace(/'/g, "\\'")}', '${m.filial_id}', '${(m.telefone || '').replace(/'/g, "\\'")}'`;
+            });
+            
+            document.getElementById('formMembroRef').innerHTML = optionsMembros;
+            atualizarAbaMembros();
+        });
 
+        function atualizarAbaMembros() {
+            const fFilial = document.getElementById('filtroMemFilial').value;
+            let filtrados = fFilial === 'todas' ? todosMembros : todosMembros.filter(m => m.filial_id === fFilial);
+            
+            document.getElementById('totalMembros').innerText = filtrados.length;
+            
+            let htmlMembros = '';
+            filtrados.forEach((m) => {
+                const paramsEdit = `'${m.id}', '${m.nome.replace(/'/g, "\\'")}', '${m.filial_id}', '${(m.telefone || '').replace(/'/g, "\\'")}'`;
                 htmlMembros += `<div class="list-item">
                         <div class="info" style="flex:1;">
                             <h4>${m.nome}</h4>
@@ -338,9 +394,9 @@
                         </div>
                     </div>`;
             });
-            document.getElementById('listaMembros').innerHTML = htmlMembros || '<p style="text-align:center;">Nenhum membro cadastrado.</p>';
-            document.getElementById('formMembroRef').innerHTML = optionsMembros;
-        });
+            document.getElementById('listaMembros').innerHTML = htmlMembros || '<p style="text-align:center; color: var(--text-light);">Nenhum membro encontrado.</p>';
+        }
+        document.getElementById('filtroMemFilial').addEventListener('change', atualizarAbaMembros);
 
         window.editarMembro = function(id, nome, filial_id, telefone) {
             document.getElementById('membroModal').style.display = 'flex';
@@ -351,87 +407,82 @@
             document.getElementById('formMembroTel').value = telefone;
         }
 
+        // 4. TRANSAÇÕES (Dados Globais)
         onSnapshot(query(collection(db, "transacoes")), (snapshot) => {
             todasTransacoes = [];
             snapshot.forEach((docSnap) => todasTransacoes.push({ id: docSnap.id, ...docSnap.data() }));
             todasTransacoes.sort((a, b) => new Date(b.data) - new Date(a.data));
-            atualizarTela();
+            atualizarDashboard();
+            atualizarAbaLancamentos();
         });
 
-        function atualizarTela() {
-            const filtroAtual = document.getElementById('filialFilter').value;
-            let filtrados = filtroAtual === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroAtual);
+        // ==========================================
+        // ATUALIZAÇÃO DA ABA DASHBOARD (INÍCIO)
+        // ==========================================
+        function atualizarDashboard() {
+            const filtroFilial = document.getElementById('filialFilter').value;
+            let dadosBase = filtroFilial === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroFilial);
             
+            // Filtro de Tempo (Aplica Saldo e Gráficos)
+            const hoje = new Date();
+            hoje.setHours(0,0,0,0);
+            
+            let dadosFiltradosTempo = dadosBase.filter(t => {
+                const dataT = new Date(t.data + "T00:00:00");
+                if (filtroTempoGlobal === 'semana') {
+                    const diffTime = Math.abs(hoje - dataT);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                    return diffDays <= 7 && dataT <= hoje;
+                } else if (filtroTempoGlobal === 'mes') {
+                    return dataT.getMonth() === hoje.getMonth() && dataT.getFullYear() === hoje.getFullYear();
+                } else if (filtroTempoGlobal === 'ano') {
+                    return dataT.getFullYear() === hoje.getFullYear();
+                }
+                return true;
+            });
+
             let ent = 0, sai = 0;
             let mapaCategorias = {}; 
-            let htmlLista = '';
 
-            filtrados.forEach(t => {
+            dadosFiltradosTempo.forEach(t => {
                 const val = parseFloat(t.valor);
                 if(!mapaCategorias[t.categoria]) mapaCategorias[t.categoria] = 0;
                 mapaCategorias[t.categoria] += val;
-
                 if (t.tipo === 'entrada') ent += val; else sai += val;
-
-                const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
-                const cor = t.tipo === 'entrada' ? 'val-entrada' : 'val-saida';
-                const sinal = t.tipo === 'entrada' ? '+' : '-';
-                const membroStr = t.membro ? `👤 ${t.membro}` : '';
-                
-                htmlLista += `
-                    <div class="list-item">
-                        <div class="info" style="flex:1;">
-                            <h4>${t.categoria} <span class="tag-filial">${dicionarioFiliais[t.filial_id] || ''}</span></h4>
-                            <p>${dataF} • ${membroStr} ${t.obs ? '- '+t.obs : ''}</p>
-                        </div>
-                        <div style="text-align:right;">
-                            <div class="${cor}" style="margin-bottom:5px;">${sinal} ${formatarMoeda(val)}</div>
-                            <button onclick="excluirItem('transacoes', '${t.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i> Excluir</button>
-                        </div>
-                    </div>`;
             });
 
             document.getElementById('entradasTotal').innerText = formatarMoeda(ent);
             document.getElementById('saidasTotal').innerText = formatarMoeda(sai);
             document.getElementById('saldoTotal').innerText = formatarMoeda(ent - sai);
-            document.getElementById('listaTransacoes').innerHTML = htmlLista || '<p style="text-align:center;">Nenhum lançamento.</p>';
 
+            // Atualiza Pizza
             pieChartInst.data.labels = Object.keys(mapaCategorias);
             pieChartInst.data.datasets[0].data = Object.values(mapaCategorias);
             pieChartInst.update();
 
-            atualizarGraficoBarras(filtrados);
+            // Atualiza Barras
+            atualizarGraficoBarras(dadosFiltradosTempo, hoje);
         }
 
-        function atualizarGraficoBarras(dados) {
-            let dadosEntradas = dados.filter(d => d.tipo === 'entrada');
+        function atualizarGraficoBarras(dadosEntradasTempo, hoje) {
+            let dadosEntradas = dadosEntradasTempo.filter(d => d.tipo === 'entrada');
             let mapaAgrupado = {};
-            const hoje = new Date();
-            hoje.setHours(0,0,0,0);
 
             dadosEntradas.forEach(t => {
                 const dataT = new Date(t.data + "T00:00:00");
                 const val = parseFloat(t.valor);
                 
                 if (filtroTempoGlobal === 'semana') {
-                    const diffTime = Math.abs(hoje - dataT);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-                    if (diffDays <= 7 && dataT <= hoje) {
-                        const chave = dataT.toLocaleDateString('pt-BR', {weekday: 'short', day: '2-digit'});
-                        mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
-                    }
+                    const chave = dataT.toLocaleDateString('pt-BR', {weekday: 'short', day: '2-digit'});
+                    mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
                 } 
                 else if (filtroTempoGlobal === 'mes') {
-                    if (dataT.getMonth() === hoje.getMonth() && dataT.getFullYear() === hoje.getFullYear()) {
-                        const chave = dataT.getDate().toString().padStart(2, '0');
-                        mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
-                    }
+                    const chave = dataT.getDate().toString().padStart(2, '0');
+                    mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
                 } 
                 else if (filtroTempoGlobal === 'ano') {
-                    if (dataT.getFullYear() === hoje.getFullYear()) {
-                        const chave = dataT.toLocaleDateString('pt-BR', {month: 'short'});
-                        mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
-                    }
+                    const chave = dataT.toLocaleDateString('pt-BR', {month: 'short'});
+                    mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
                 }
             });
 
@@ -447,8 +498,76 @@
             filtroTempoGlobal = periodo;
             document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
             btnElement.classList.add('active');
-            atualizarTela();
+            atualizarDashboard();
         }
+        document.getElementById('filialFilter').addEventListener('change', atualizarDashboard);
+
+        // ==========================================
+        // ATUALIZAÇÃO DA ABA LANÇAMENTOS (Com Filtros)
+        // ==========================================
+        function atualizarAbaLancamentos() {
+            const fIni = document.getElementById('filtroLanInicio').value;
+            const fFim = document.getElementById('filtroLanFim').value;
+            const fFilial = document.getElementById('filtroLanFilial').value;
+            const fTipo = document.getElementById('filtroLanTipo').value;
+
+            let filtrados = todasTransacoes.filter(t => {
+                let ok = true;
+                if (fFilial !== 'todas' && t.filial_id !== fFilial) ok = false;
+                if (fTipo !== 'todos' && t.tipo !== fTipo) ok = false;
+                if (fIni && t.data < fIni) ok = false;
+                if (fFim && t.data > fFim) ok = false;
+                return ok;
+            });
+
+            let htmlLista = '';
+            filtrados.forEach(t => {
+                const val = parseFloat(t.valor);
+                const dataF = new Date(t.data + "T00:00:00").toLocaleDateString('pt-BR');
+                const cor = t.tipo === 'entrada' ? 'val-entrada' : 'val-saida';
+                const sinal = t.tipo === 'entrada' ? '+' : '-';
+                const membroStr = t.membro ? `👤 ${t.membro}` : '';
+                
+                htmlLista += `
+                    <div class="list-item">
+                        <div class="info" style="flex:1;">
+                            <h4>${t.categoria} <span class="tag-filial">${dicionarioFiliais[t.filial_id] || ''}</span></h4>
+                            <p>${dataF} • ${membroStr} ${t.obs ? '- '+t.obs : ''}</p>
+                        </div>
+                        <div style="text-align:right;">
+                            <div class="${cor}" style="margin-bottom:5px;">${sinal} ${formatarMoeda(val)}</div>
+                            <button onclick="excluirItem('transacoes', '${t.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer; padding:5px;"><i class="fas fa-trash"></i> Excluir</button>
+                        </div>
+                    </div>`;
+            });
+
+            document.getElementById('listaTransacoes').innerHTML = htmlLista || '<p style="text-align:center; color: var(--text-light); margin-top:20px;">Nenhum lançamento no período filtrado.</p>';
+        }
+
+        document.getElementById('filtroLanInicio').addEventListener('change', atualizarAbaLancamentos);
+        document.getElementById('filtroLanFim').addEventListener('change', atualizarAbaLancamentos);
+        document.getElementById('filtroLanFilial').addEventListener('change', atualizarAbaLancamentos);
+        document.getElementById('filtroLanTipo').addEventListener('change', atualizarAbaLancamentos);
+
+
+        // ==========================================
+        // CONFIGURAÇÕES, GERAIS E CRUD
+        // ==========================================
+        onSnapshot(doc(db, "configuracoes", "geral"), (docSnap) => {
+            if (docSnap.exists()) {
+                const dados = docSnap.data();
+                document.getElementById('appTitle').innerText = dados.nomeIgreja || 'Sistema IEAD';
+                document.getElementById('configNomeIgreja').value = dados.nomeIgreja || '';
+            }
+        });
+
+        document.getElementById('formAjustes').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
+            await setDoc(doc(db, "configuracoes", "geral"), { nomeIgreja: document.getElementById('configNomeIgreja').value }, { merge: true });
+            document.getElementById('btnSalvarAjustes').innerText = 'Salvar Cabeçalho';
+            alert('Cabeçalho atualizado com sucesso!');
+        });
 
         window.adicionarFilial = async function() {
             try {
@@ -473,11 +592,12 @@
         }
 
         window.excluirItem = async function(colecao, id) {
-            if(confirm('Tem certeza que deseja excluir este item permanentemente?')) {
+            if(confirm('Tem certeza que deseja excluir permanentemente?')) {
                 await deleteDoc(doc(db, colecao, id));
             }
         }
 
+        // MODAIS E SALVAMENTOS
         window.fecharModais = function() {
             document.getElementById('transacaoModal').style.display = 'none';
             document.getElementById('membroModal').style.display = 'none';
@@ -552,22 +672,7 @@
             fecharModais();
         });
 
-        onSnapshot(doc(db, "configuracoes", "geral"), (docSnap) => {
-            if (docSnap.exists()) {
-                const dados = docSnap.data();
-                document.getElementById('appTitle').innerText = dados.nomeIgreja || 'Sistema IEAD';
-                document.getElementById('configNomeIgreja').value = dados.nomeIgreja || '';
-            }
-        });
-
-        document.getElementById('formAjustes').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
-            await setDoc(doc(db, "configuracoes", "geral"), { nomeIgreja: document.getElementById('configNomeIgreja').value }, { merge: true });
-            document.getElementById('btnSalvarAjustes').innerText = 'Salvar Cabeçalho';
-            alert('Cabeçalho atualizado com sucesso!');
-        });
-
+        // NAVEGAÇÃO DE ABAS
         const navItems = document.querySelectorAll('.nav-item');
         const tabContents = document.querySelectorAll('.tab-content');
         navItems.forEach(item => {
@@ -581,24 +686,41 @@
         });
 
         // ==========================================
-        // GERAÇÃO DE PDF OTIMIZADA E CORRIGIDA AQUI
+        // GERAÇÃO DE PDFs
         // ==========================================
-        window.gerarPDF = function() {
+        window.gerarPDFTransacoes = function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
             const filtroAtual = document.getElementById('filialFilter').value;
             const tituloDoc = filtroAtual === 'todas' ? 'Relatório Geral' : (dicionarioFiliais[filtroAtual] || 'Relatório Financeiro');
             
-            let filtrados = filtroAtual === 'todas' ? [...todasTransacoes] : todasTransacoes.filter(t => t.filial_id === filtroAtual);
-            filtrados.sort((a, b) => new Date(a.data) - new Date(b.data));
+            // Usa exatamente a regra de tempo do Dashboard
+            const hoje = new Date();
+            hoje.setHours(0,0,0,0);
+            
+            let filtradosTempo = todasTransacoes.filter(t => {
+                if (filtroAtual !== 'todas' && t.filial_id !== filtroAtual) return false;
+                const dataT = new Date(t.data + "T00:00:00");
+                if (filtroTempoGlobal === 'semana') {
+                    const diffTime = Math.abs(hoje - dataT);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                    return diffDays <= 7 && dataT <= hoje;
+                } else if (filtroTempoGlobal === 'mes') {
+                    return dataT.getMonth() === hoje.getMonth() && dataT.getFullYear() === hoje.getFullYear();
+                } else if (filtroTempoGlobal === 'ano') {
+                    return dataT.getFullYear() === hoje.getFullYear();
+                }
+                return true;
+            });
+            
+            filtradosTempo.sort((a, b) => new Date(a.data) - new Date(b.data));
 
             let ent = 0, sai = 0;
-            let mapaPdf = {}; // Para gerar a legenda manual com valores
+            let mapaPdf = {}; 
             
-            const corpoTabela = filtrados.map(t => {
+            const corpoTabela = filtradosTempo.map(t => {
                 const val = parseFloat(t.valor);
-                
                 if(!mapaPdf[t.categoria]) mapaPdf[t.categoria] = 0;
                 mapaPdf[t.categoria] += val;
 
@@ -615,50 +737,44 @@
                 ];
             });
 
-            const dizimistasPeriodo = [...new Set(filtrados.filter(t => t.tipo === 'entrada' && t.membro).map(t => t.membro))];
+            const dizimistasPeriodo = [...new Set(filtradosTempo.filter(t => t.tipo === 'entrada' && t.membro).map(t => t.membro))];
 
-            // 1. Cabeçalho
             doc.setFontSize(16);
             doc.setFont(undefined, 'bold');
             doc.text(tituloDoc, 14, 20);
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
-            doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
+            doc.text(`Período de filtro: ${filtroTempoGlobal.toUpperCase()} | Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
 
-            // 2. Gráfico de Pizza (Renderizado maior no PDF)
             const canvasPie = document.getElementById('pieChart');
             const imgPie = canvasPie.toDataURL('image/png', 1.0);
             
             const proporcao = canvasPie.width / canvasPie.height;
-            const larguraPdf = 95; // AUMENTADO PARA NÃO FICAR PEQUENO
+            const larguraPdf = 95; 
             const alturaPdf = larguraPdf / proporcao;
 
             doc.addImage(imgPie, 'PNG', 14, 32, larguraPdf, alturaPdf);
 
-            // 3. Legenda Personalizada (Com os Valores das Categorias)
             const keysPdf = Object.keys(mapaPdf);
             const valuesPdf = Object.values(mapaPdf);
             let yLegenda = 38;
             
             doc.setFontSize(10);
             keysPdf.forEach((cat, idx) => {
-                const hex = coresHex[idx % coresHex.length];
+                const hex = coresHex[idx % coresHex.length] || '#000';
                 const r = parseInt(hex.substring(1,3), 16);
                 const g = parseInt(hex.substring(3,5), 16);
                 const b = parseInt(hex.substring(5,7), 16);
                 
-                // Desenha um quadrado colorido
                 doc.setFillColor(r, g, b);
                 doc.rect(115, yLegenda - 3, 4, 4, 'F'); 
                 
-                // Escreve a categoria e o valor correspondente
                 doc.setTextColor(0, 0, 0);
                 doc.setFont(undefined, 'normal');
                 doc.text(`${cat}: R$ ${valuesPdf[idx].toFixed(2)}`, 122, yLegenda);
                 yLegenda += 6;
             });
 
-            // 4. Resumo de Saldos
             let yResumo = Math.max(yLegenda + 6, 60);
             doc.setFontSize(11);
             doc.setFont(undefined, 'bold');
@@ -666,7 +782,6 @@
             doc.text(`Total Saídas: R$ ${sai.toFixed(2)}`, 115, yResumo + 8);
             doc.text(`Saldo Final: R$ ${(ent - sai).toFixed(2)}`, 115, yResumo + 16);
 
-            // 5. Tabela de Lançamentos
             const inicioTabela = Math.max(32 + alturaPdf + 10, yResumo + 26);
             
             doc.autoTable({
@@ -681,7 +796,6 @@
 
             let finalY = doc.lastAutoTable.finalY || inicioTabela;
 
-            // 6. Lista de Dizimistas
             if (dizimistasPeriodo.length > 0) {
                 if (finalY > 250) { doc.addPage(); finalY = 20; }
                 
@@ -700,7 +814,6 @@
                 finalY = yDizimista;
             }
 
-            // 7. Linha de Assinatura
             if (finalY > 260) { doc.addPage(); finalY = 20; }
             doc.setLineWidth(0.5);
             doc.line(70, finalY + 30, 140, finalY + 30);
@@ -708,13 +821,44 @@
             doc.setFont(undefined, 'normal');
             doc.text("Assinatura do Tesoureiro / Responsável", 105, finalY + 37, { align: 'center' });
 
-            doc.save(`Relatorio_${tituloDoc.replace(/ /g, '_')}.pdf`);
+            doc.save(`Relatorio_Financeiro.pdf`);
         }
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(reg => {
-                reg.update();
+        window.gerarPDFMembros = function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const fFilial = document.getElementById('filtroMemFilial').value;
+            const tituloDoc = fFilial === 'todas' ? 'Relatório Geral de Membros' : `Membros - ${dicionarioFiliais[fFilial]}`;
+            
+            let filtrados = fFilial === 'todas' ? todosMembros : todosMembros.filter(m => m.filial_id === fFilial);
+
+            const corpoTabela = filtrados.map(m => {
+                return [m.nome, m.telefone || '-', dicionarioFiliais[m.filial_id] || '-'];
             });
+
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.text(tituloDoc, 14, 20);
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Total Cadastrado: ${filtrados.length} membros | Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
+
+            doc.autoTable({
+                startY: 35,
+                head: [['Nome Completo', 'Contato', 'Congregação']],
+                body: corpoTabela,
+                theme: 'striped',
+                headStyles: { fillColor: [44, 62, 80] },
+                styles: { fontSize: 10 }
+            });
+
+            doc.save(`Lista_Membros.pdf`);
+        }
+
+        // ATIVAR PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(reg => reg.update());
         }
     </script>
 </body>

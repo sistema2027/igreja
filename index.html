@@ -22,7 +22,7 @@
         body { background-color: var(--bg-color); color: var(--text-dark); padding-bottom: 70px; }
         
         header { background-color: var(--white); padding: 15px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-        .container { padding: 15px; display: none; /* Escondido até logar */ } 
+        .container { padding: 15px; display: none; } 
         
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s; }
@@ -60,7 +60,7 @@
         .time-btn { flex: 1; padding: 8px; border: none; border-radius: 8px; background-color: #ddd; color: var(--text-dark); font-weight: bold; cursor: pointer; }
         .time-btn.active { background-color: var(--text-dark); color: var(--white); }
 
-        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--white); display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); border-radius: 20px 20px 0 0; z-index: 100; display: none; /* Escondido até logar */ }
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: var(--white); display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); border-radius: 20px 20px 0 0; z-index: 100; display: none; }
         .nav-item { display: flex; flex-direction: column; align-items: center; color: var(--text-light); font-size: 0.75rem; text-decoration: none; cursor: pointer; }
         .nav-item.active { color: var(--primary-dark); font-weight: bold; }
         .nav-item i { font-size: 1.2rem; margin-bottom: 3px; }
@@ -72,7 +72,6 @@
         .filtros-lancamentos label { font-size: 0.75rem; font-weight: bold; color: var(--text-light); }
         .filtros-lancamentos input, .filtros-lancamentos select { padding: 10px; margin-bottom: 0; font-size: 0.9rem; }
 
-        /* Telas de Auth e Bloqueio */
         .auth-screen, .block-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 500; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
         .auth-box { background: var(--white); padding: 30px; border-radius: 15px; box-shadow: var(--shadow); width: 100%; max-width: 400px; text-align: center; }
         .auth-box h1 { margin-bottom: 20px; color: var(--text-dark); }
@@ -197,12 +196,6 @@
         <div id="tab-ajustes" class="tab-content">
             <h2 style="margin-bottom: 15px;">Configurações</h2>
             
-            <div class="card" style="border-left: none; margin-bottom: 15px; background: #fff3cd; border: 1px solid #ffeeba;">
-                <h3 style="margin-bottom: 10px; color: #856404; text-transform: none;"><i class="fas fa-exclamation-triangle"></i> Migração de Dados</h3>
-                <p style="font-size: 0.8rem; color: #856404; margin-bottom: 10px;">Se você usava o app antes de criar esta conta, clique abaixo para vincular os dados antigos ao seu novo usuário seguro.</p>
-                <button class="btn" style="width: 100%; background: #ffc107;" onclick="migrarDadosAntigos()">Vincular Dados Antigos</button>
-            </div>
-
             <div class="card" style="border-left: none; margin-bottom: 15px;">
                 <h3 style="margin-bottom: 15px; color: var(--text-dark);">Dados Gerais</h3>
                 <form id="formAjustes">
@@ -278,7 +271,7 @@
     <!-- SCRIPT PRINCIPAL -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, updateDoc, setDoc, where, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -294,9 +287,8 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // VARIÁVEIS GLOBAIS
         let usuarioLogado = null;
-        let unsubscribeListeners = []; // Para limpar leituras do banco ao deslogar
+        let unsubscribeListeners = []; 
         
         let todasTransacoes = [];
         let todosMembros = [];
@@ -310,14 +302,12 @@
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const coresHex = ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6', '#3498db', '#9b59b6'];
 
-        // PREENCHER DATAS INICIAIS
         const dateNow = new Date();
         const firstDay = new Date(dateNow.getFullYear(), dateNow.getMonth(), 1).toISOString().split('T')[0];
         const lastDay = new Date(dateNow.getFullYear(), dateNow.getMonth() + 1, 0).toISOString().split('T')[0];
         document.getElementById('filtroLanInicio').value = firstDay;
         document.getElementById('filtroLanFim').value = lastDay;
 
-        // INICIALIZAR GRÁFICOS
         function initCharts() {
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             pieChartInst = new Chart(ctxPie, {
@@ -335,11 +325,7 @@
         }
         initCharts();
 
-        // ==========================================
-        // SISTEMA DE AUTENTICAÇÃO E TRIAL
-        // ==========================================
-        let authMode = 'login'; // login ou register
-
+        let authMode = 'login';
         window.toggleAuthMode = function() {
             authMode = authMode === 'login' ? 'register' : 'login';
             document.getElementById('authTitle').innerText = authMode === 'login' ? 'Acessar Sistema' : 'Criar Nova Conta';
@@ -370,22 +356,18 @@
             signOut(auth);
         }
 
-        // Observador de Estado de Login
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 usuarioLogado = user;
                 document.getElementById('authScreen').style.display = 'none';
                 
-                // Checagem de 30 Dias (Trial)
                 const userDocRef = doc(db, "usuarios", user.uid);
                 const userSnap = await getDoc(userDocRef);
                 
                 if (!userSnap.exists()) {
-                    // Novo usuário criado
                     await setDoc(userDocRef, { dataCriacao: new Date().toISOString(), email: user.email });
                     iniciarSistemaPrivado(user.uid);
                 } else {
-                    // Verifica há quantos dias foi criado
                     const dataC = new Date(userSnap.data().dataCriacao);
                     const hoje = new Date();
                     const diffDias = Math.floor((hoje - dataC) / (1000 * 60 * 60 * 24));
@@ -401,7 +383,6 @@
                 }
             } else {
                 usuarioLogado = null;
-                // Limpa ouvintes se houver
                 unsubscribeListeners.forEach(unsub => unsub());
                 unsubscribeListeners = [];
                 
@@ -413,15 +394,11 @@
             }
         });
 
-        // ==========================================
-        // INICIA O SISTEMA PARA O USUÁRIO LOGADO
-        // ==========================================
         function iniciarSistemaPrivado(uid) {
             document.getElementById('mainHeader').style.display = 'flex';
             document.getElementById('mainContainer').style.display = 'block';
             document.getElementById('mainNav').style.display = 'flex';
 
-            // 1. FILIAIS DO USUÁRIO
             const qFiliais = query(collection(db, "filiais"), where("uid", "==", uid));
             const unsubFiliais = onSnapshot(qFiliais, (snapshot) => {
                 let optionsFiltro = '<option value="todas">🏢 Visão Global (Todas as Filiais)</option>';
@@ -453,7 +430,6 @@
             });
             unsubscribeListeners.push(unsubFiliais);
 
-            // 2. CATEGORIAS DO USUÁRIO
             const qCat = query(collection(db, "categorias"), where("uid", "==", uid));
             const unsubCat = onSnapshot(qCat, (snapshot) => {
                 catEntradas = []; catSaidas = [];
@@ -473,7 +449,6 @@
             });
             unsubscribeListeners.push(unsubCat);
 
-            // 3. MEMBROS DO USUÁRIO
             const qMembros = query(collection(db, "membros"), where("uid", "==", uid));
             const unsubMembros = onSnapshot(qMembros, (snapshot) => {
                 todosMembros = [];
@@ -491,7 +466,6 @@
             });
             unsubscribeListeners.push(unsubMembros);
 
-            // 4. TRANSAÇÕES DO USUÁRIO
             const qTransacoes = query(collection(db, "transacoes"), where("uid", "==", uid));
             const unsubTrans = onSnapshot(qTransacoes, (snapshot) => {
                 todasTransacoes = [];
@@ -502,7 +476,6 @@
             });
             unsubscribeListeners.push(unsubTrans);
 
-            // 5. CONFIGURAÇÕES DO USUÁRIO
             const unsubConfig = onSnapshot(doc(db, "configuracoes", uid), (docSnap) => {
                 if (docSnap.exists()) {
                     const dados = docSnap.data();
@@ -515,40 +488,6 @@
             unsubscribeListeners.push(unsubConfig);
         }
 
-        // ==========================================
-        // SCRIPT DE MIGRAÇÃO (USO ÚNICO PELO ADMIN ORIGINAL)
-        // ==========================================
-        window.migrarDadosAntigos = async function() {
-            if(!confirm("Atenção: Isso vai buscar dados antigos sem dono e vincular permanentemente a sua conta atual. Deseja continuar?")) return;
-            
-            try {
-                let count = 0;
-                const colecoes = ['transacoes', 'membros', 'filiais', 'categorias'];
-                for (let col of colecoes) {
-                    const snap = await getDocs(collection(db, col));
-                    for (let d of snap.docs) {
-                        if (!d.data().uid) { // Se não tem dono
-                            await updateDoc(doc(db, col, d.id), { uid: usuarioLogado.uid });
-                            count++;
-                        }
-                    }
-                }
-                
-                // Puxar também a configuração global antiga se existir
-                const confAntiga = await getDoc(doc(db, "configuracoes", "geral"));
-                if(confAntiga.exists() && confAntiga.data().nomeIgreja) {
-                    await setDoc(doc(db, "configuracoes", usuarioLogado.uid), { nomeIgreja: confAntiga.data().nomeIgreja }, { merge: true });
-                }
-
-                alert(`Migração Concluída! ${count} registros foram vinculados a sua conta.`);
-            } catch (error) {
-                alert("Erro ao migrar dados: " + error.message);
-            }
-        }
-
-        // ==========================================
-        // ATUALIZAÇÃO DA INTERFACE (FUNÇÕES PURAS)
-        // ==========================================
         function atualizarAbaMembros() {
             const fFilial = document.getElementById('filtroMemFilial').value;
             let filtrados = fFilial === 'todas' ? todosMembros : todosMembros.filter(m => m.filial_id === fFilial);
@@ -697,10 +636,6 @@
         document.getElementById('filtroLanFilial').addEventListener('change', atualizarAbaLancamentos);
         document.getElementById('filtroLanTipo').addEventListener('change', atualizarAbaLancamentos);
 
-
-        // ==========================================
-        // CRUD (Salvando com o ID do Usuário)
-        // ==========================================
         document.getElementById('formAjustes').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
@@ -813,7 +748,6 @@
             fecharModais();
         });
 
-        // NAVEGAÇÃO DE ABAS
         const navItems = document.querySelectorAll('.nav-item');
         const tabContents = document.querySelectorAll('.tab-content');
         navItems.forEach(item => {
@@ -826,9 +760,6 @@
             });
         });
 
-        // ==========================================
-        // GERAÇÃO DE PDFs
-        // ==========================================
         window.gerarPDFTransacoes = function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -996,9 +927,6 @@
             doc.save(`Lista_Membros.pdf`);
         }
 
-        // ==========================================
-        // PWA - INSTALAÇÃO NATIVA
-        // ==========================================
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();

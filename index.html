@@ -488,6 +488,9 @@
             unsubscribeListeners.push(unsubConfig);
         }
 
+        // ==========================================
+        // ATUALIZAR INTERFACE
+        // ==========================================
         function atualizarAbaMembros() {
             const fFilial = document.getElementById('filtroMemFilial').value;
             let filtrados = fFilial === 'todas' ? todosMembros : todosMembros.filter(m => m.filial_id === fFilial);
@@ -497,20 +500,41 @@
             let htmlMembros = '';
             filtrados.forEach((m) => {
                 const paramsEdit = `'${m.id}', '${m.nome.replace(/'/g, "\\'")}', '${m.filial_id}', '${(m.telefone || '').replace(/'/g, "\\'")}'`;
+                
+                // Lógica Inteligente do Botão WhatsApp
+                let btnWhatsApp = '';
+                if (m.telefone) {
+                    let numZap = m.telefone.replace(/\D/g, ''); 
+                    if (numZap.length >= 10) {
+                        if (!numZap.startsWith('55')) numZap = '55' + numZap;
+                        btnWhatsApp = `<a href="https://wa.me/${numZap}" target="_blank" style="background:#25D366; color:white; padding:6px 12px; border-radius:8px; text-decoration:none; display:flex; align-items:center; box-shadow: 0 4px 0 #1DA851; margin-right:5px;"><i class="fab fa-whatsapp" style="font-size: 1.1rem;"></i></a>`;
+                    }
+                }
+
                 htmlMembros += `<div class="list-item">
                         <div class="info" style="flex:1;">
                             <h4>${m.nome}</h4>
                             <p>${m.telefone || 'Sem telefone'} • <span class="tag-filial">${dicionarioFiliais[m.filial_id] || ''}</span></p>
                         </div>
-                        <div style="display:flex; gap:10px;">
-                            <button onclick="editarMembro(${paramsEdit})" style="background:none; border:none; color:var(--primary-dark); cursor:pointer;"><i class="fas fa-edit"></i></button>
-                            <button onclick="excluirItem('membros', '${m.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            ${btnWhatsApp}
+                            <button onclick="editarMembro(${paramsEdit})" style="background:none; border:none; color:var(--primary-dark); cursor:pointer; padding:5px;"><i class="fas fa-edit" style="font-size:1.2rem;"></i></button>
+                            <button onclick="excluirItem('membros', '${m.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer; padding:5px;"><i class="fas fa-trash" style="font-size:1.2rem;"></i></button>
                         </div>
                     </div>`;
             });
             document.getElementById('listaMembros').innerHTML = htmlMembros || '<p style="text-align:center; color: var(--text-light);">Nenhum membro encontrado.</p>';
         }
         document.getElementById('filtroMemFilial').addEventListener('change', atualizarAbaMembros);
+
+        window.editarMembro = function(id, nome, filial_id, telefone) {
+            document.getElementById('membroModal').style.display = 'flex';
+            document.getElementById('membroModalTitle').innerText = 'Editar Membro';
+            document.getElementById('formMembroId').value = id;
+            document.getElementById('formMembroNome').value = nome;
+            document.getElementById('formMembroFilial').value = filial_id;
+            document.getElementById('formMembroTel').value = telefone;
+        }
 
         function atualizarDashboard() {
             const filtroFilial = document.getElementById('filialFilter').value;
@@ -636,6 +660,9 @@
         document.getElementById('filtroLanFilial').addEventListener('change', atualizarAbaLancamentos);
         document.getElementById('filtroLanTipo').addEventListener('change', atualizarAbaLancamentos);
 
+        // ==========================================
+        // CRUD (Ações do Banco)
+        // ==========================================
         document.getElementById('formAjustes').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
@@ -760,6 +787,9 @@
             });
         });
 
+        // ==========================================
+        // GERAÇÃO DE PDFs
+        // ==========================================
         window.gerarPDFTransacoes = function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();

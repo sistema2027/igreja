@@ -96,18 +96,18 @@
         </div>
     </div>
 
-    <!-- TELA DE BLOQUEIO (TRIAL EXPIRADO) -->
+    <!-- TELA DE BLOQUEIO -->
     <div class="block-screen" id="blockScreen" style="display: none;">
         <div class="auth-box" style="border-top: 5px solid var(--danger);">
             <i class="fas fa-lock" style="font-size: 3rem; color: var(--danger); margin-bottom: 15px;"></i>
-            <h2 style="margin-bottom: 10px;">Período de Acesso Expirado</h2>
-            <p style="color: var(--text-light); margin-bottom: 20px; font-size: 0.95rem;">Seu acesso de 30 dias chegou ao fim. Para continuar gerenciando sua igreja sem interrupções, reative sua assinatura.</p>
+            <h2 style="margin-bottom: 10px;">Período de Teste Expirado</h2>
+            <p style="color: var(--text-light); margin-bottom: 20px; font-size: 0.95rem;">Seu acesso gratuito de 30 dias chegou ao fim. Para continuar gerenciando sua igreja sem interrupções, reative sua assinatura.</p>
             <a href="https://kirvano.com/seu-link" target="_blank" class="btn" style="display: block; width: 100%; margin-bottom: 10px; background: var(--success); color: white; box-shadow: 0 4px 0 #27ae60;">Renovar Acesso Agora</a>
             <button class="btn btn-danger" style="width: 100%; box-shadow: none;" onclick="fazerLogout()">Sair da Conta</button>
         </div>
     </div>
 
-    <!-- APLICATIVO PRINCIPAL -->
+    <!-- HEADER E NAVEGAÇÃO -->
     <header id="mainHeader" style="display: none;">
         <h1 id="appTitle" style="font-size: 1.2rem;">Carregando...</h1>
         <div onclick="fazerLogout()" style="width: 35px; height: 35px; background: #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--danger); cursor: pointer;"><i class="fas fa-sign-out-alt"></i></div>
@@ -159,11 +159,13 @@
         <div id="tab-lancamentos" class="tab-content">
             <div class="card filtros-lancamentos" style="border-left: none; margin-bottom: 15px; padding: 15px;">
                 <h3 style="margin-bottom: 10px; color: var(--text-dark); text-transform: none;">Filtros de Pesquisa</h3>
+                
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                     <div><label>Data Início</label><input type="date" id="filtroLanInicio"></div>
                     <div><label>Data Fim</label><input type="date" id="filtroLanFim"></div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                     <select id="filtroLanFilial"><option value="todas">Todas as Filiais</option></select>
                     <select id="filtroLanTipo">
                         <option value="todos">Todas</option>
@@ -171,7 +173,13 @@
                         <option value="saida">Saídas</option>
                     </select>
                 </div>
+                
+                <!-- NOVO FILTRO DE MEMBRO -->
+                <select id="filtroLanMembro" style="margin-bottom: 0;">
+                    <option value="todos">Todos os Membros (Geral)</option>
+                </select>
             </div>
+            
             <div id="listaTransacoes"></div>
         </div>
 
@@ -308,6 +316,49 @@
         document.getElementById('filtroLanInicio').value = firstDay;
         document.getElementById('filtroLanFim').value = lastDay;
 
+        // ==========================================
+        // GESTÃO DE HISTÓRICO (BOTÃO VOLTAR DO CELULAR)
+        // ==========================================
+        history.replaceState({ tab: 'tab-inicio' }, '', '#tab-inicio');
+
+        window.abrirAba = function(targetId, pushHistory = true) {
+            document.querySelectorAll('.nav-item').forEach(nav => {
+                nav.classList.toggle('active', nav.getAttribute('data-target') === targetId);
+            });
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.toggle('active', tab.id === targetId);
+            });
+            if (pushHistory) {
+                history.pushState({ tab: targetId }, '', '#' + targetId);
+            }
+        }
+
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                abrirAba(item.getAttribute('data-target'), true);
+            });
+        });
+
+        window.addEventListener('popstate', (e) => {
+            // Se a URL deixou de ser #modal, fecha as telas pretas sobrepostas
+            if (location.hash !== '#modal') {
+                document.getElementById('transacaoModal').style.display = 'none';
+                document.getElementById('membroModal').style.display = 'none';
+            }
+
+            // Descobre pra qual aba o celular quer voltar
+            let targetTab = 'tab-inicio';
+            if (e.state && e.state.tab) {
+                targetTab = e.state.tab;
+            } else if (location.hash && location.hash.startsWith('#tab-')) {
+                targetTab = location.hash.substring(1);
+            }
+            abrirAba(targetTab, false);
+        });
+
+
         function initCharts() {
             const ctxPie = document.getElementById('pieChart').getContext('2d');
             pieChartInst = new Chart(ctxPie, {
@@ -365,20 +416,26 @@
                 const userSnap = await getDoc(userDocRef);
                 
                 if (!userSnap.exists()) {
-                    await setDoc(userDocRef, { dataCriacao: new Date().toISOString(), email: user.email });
+                    await setDoc(userDocRef, { dataCriacao: new Date().toISOString(), email: user.email, plano: 'trial' });
                     iniciarSistemaPrivado(user.uid);
                 } else {
-                    const dataC = new Date(userSnap.data().dataCriacao);
-                    const hoje = new Date();
-                    const diffDias = Math.floor((hoje - dataC) / (1000 * 60 * 60 * 24));
+                    const userData = userSnap.data();
                     
-                    if (diffDias > 30) {
-                        document.getElementById('blockScreen').style.display = 'flex';
-                        document.getElementById('mainHeader').style.display = 'none';
-                        document.getElementById('mainContainer').style.display = 'none';
-                        document.getElementById('mainNav').style.display = 'none';
-                    } else {
+                    if (userData.plano === 'vitalicio') {
                         iniciarSistemaPrivado(user.uid);
+                    } else {
+                        const dataC = new Date(userData.dataCriacao);
+                        const hoje = new Date();
+                        const diffDias = Math.floor((hoje - dataC) / (1000 * 60 * 60 * 24));
+                        
+                        if (diffDias > 30) {
+                            document.getElementById('blockScreen').style.display = 'flex';
+                            document.getElementById('mainHeader').style.display = 'none';
+                            document.getElementById('mainContainer').style.display = 'none';
+                            document.getElementById('mainNav').style.display = 'none';
+                        } else {
+                            iniciarSistemaPrivado(user.uid);
+                        }
                     }
                 }
             } else {
@@ -452,17 +509,23 @@
             const qMembros = query(collection(db, "membros"), where("uid", "==", uid));
             const unsubMembros = onSnapshot(qMembros, (snapshot) => {
                 todosMembros = [];
+                
                 let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
+                let optionsFiltroMembros = '<option value="todos">Todos os Membros (Geral)</option>';
 
                 snapshot.forEach(docSnap => todosMembros.push({ id: docSnap.id, ...docSnap.data() }));
                 todosMembros.sort((a, b) => a.nome.localeCompare(b.nome));
 
                 todosMembros.forEach((m) => {
                     optionsMembros += `<option value="${m.nome}">${m.nome}</option>`;
+                    optionsFiltroMembros += `<option value="${m.nome}">${m.nome}</option>`;
                 });
                 
                 document.getElementById('formMembroRef').innerHTML = optionsMembros;
+                document.getElementById('filtroLanMembro').innerHTML = optionsFiltroMembros; // Preenche o novo filtro
+                
                 atualizarAbaMembros();
+                atualizarAbaLancamentos();
             });
             unsubscribeListeners.push(unsubMembros);
 
@@ -488,9 +551,6 @@
             unsubscribeListeners.push(unsubConfig);
         }
 
-        // ==========================================
-        // ATUALIZAR INTERFACE
-        // ==========================================
         function atualizarAbaMembros() {
             const fFilial = document.getElementById('filtroMemFilial').value;
             let filtrados = fFilial === 'todas' ? todosMembros : todosMembros.filter(m => m.filial_id === fFilial);
@@ -501,7 +561,6 @@
             filtrados.forEach((m) => {
                 const paramsEdit = `'${m.id}', '${m.nome.replace(/'/g, "\\'")}', '${m.filial_id}', '${(m.telefone || '').replace(/'/g, "\\'")}'`;
                 
-                // Lógica Inteligente do Botão WhatsApp
                 let btnWhatsApp = '';
                 if (m.telefone) {
                     let numZap = m.telefone.replace(/\D/g, ''); 
@@ -528,6 +587,7 @@
         document.getElementById('filtroMemFilial').addEventListener('change', atualizarAbaMembros);
 
         window.editarMembro = function(id, nome, filial_id, telefone) {
+            history.pushState({ modal: true }, '', '#modal');
             document.getElementById('membroModal').style.display = 'flex';
             document.getElementById('membroModalTitle').innerText = 'Editar Membro';
             document.getElementById('formMembroId').value = id;
@@ -621,6 +681,7 @@
             const fFim = document.getElementById('filtroLanFim').value;
             const fFilial = document.getElementById('filtroLanFilial').value;
             const fTipo = document.getElementById('filtroLanTipo').value;
+            const fMembro = document.getElementById('filtroLanMembro').value;
 
             let filtrados = todasTransacoes.filter(t => {
                 let ok = true;
@@ -628,6 +689,7 @@
                 if (fTipo !== 'todos' && t.tipo !== fTipo) ok = false;
                 if (fIni && t.data < fIni) ok = false;
                 if (fFim && t.data > fFim) ok = false;
+                if (fMembro !== 'todos' && t.membro !== fMembro) ok = false;
                 return ok;
             });
 
@@ -659,10 +721,8 @@
         document.getElementById('filtroLanFim').addEventListener('change', atualizarAbaLancamentos);
         document.getElementById('filtroLanFilial').addEventListener('change', atualizarAbaLancamentos);
         document.getElementById('filtroLanTipo').addEventListener('change', atualizarAbaLancamentos);
+        document.getElementById('filtroLanMembro').addEventListener('change', atualizarAbaLancamentos);
 
-        // ==========================================
-        // CRUD (Ações do Banco)
-        // ==========================================
         document.getElementById('formAjustes').addEventListener('submit', async (e) => {
             e.preventDefault();
             document.getElementById('btnSalvarAjustes').innerText = 'Salvando...';
@@ -705,11 +765,17 @@
             document.getElementById('formTransacao').reset();
             document.getElementById('formMembro').reset();
             document.getElementById('formMembroId').value = ''; 
+            
+            // Se o usuário apertou "Cancelar" ou "Salvar" e ainda está na URL de modal, simula o clique do voltar
+            if(location.hash === '#modal') {
+                history.back(); 
+            }
         }
 
         window.abrirModalTransacao = function(tipo) {
             if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
             
+            history.pushState({ modal: true }, '', '#modal');
             document.getElementById('formData').value = new Date().toISOString().split('T')[0];
             document.getElementById('transacaoModal').style.display = 'flex';
             document.getElementById('formTipo').value = tipo;
@@ -748,6 +814,7 @@
 
         window.abrirModalMembro = function() {
             if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
+            history.pushState({ modal: true }, '', '#modal');
             document.getElementById('formMembroId').value = ''; 
             document.getElementById('membroModalTitle').innerText = 'Cadastrar Membro';
             document.getElementById('membroModal').style.display = 'flex';
@@ -773,18 +840,6 @@
 
             document.getElementById('btnSalvarMembro').innerText = 'Salvar';
             fecharModais();
-        });
-
-        const navItems = document.querySelectorAll('.nav-item');
-        const tabContents = document.querySelectorAll('.tab-content');
-        navItems.forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
-                navItems.forEach(nav => nav.classList.remove('active'));
-                tabContents.forEach(tab => tab.classList.remove('active'));
-                item.classList.add('active');
-                document.getElementById(item.getAttribute('data-target')).classList.add('active');
-            });
         });
 
         // ==========================================

@@ -174,10 +174,14 @@
                     </select>
                 </div>
                 
-                <!-- NOVO FILTRO DE MEMBRO -->
-                <select id="filtroLanMembro" style="margin-bottom: 0;">
-                    <option value="todos">Todos os Membros (Geral)</option>
-                </select>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <select id="filtroLanCategoria" style="margin-bottom: 0;">
+                        <option value="todas">Todas as Categorias</option>
+                    </select>
+                    <select id="filtroLanMembro" style="margin-bottom: 0;">
+                        <option value="todos">Todos os Membros</option>
+                    </select>
+                </div>
             </div>
             
             <div id="listaTransacoes"></div>
@@ -342,13 +346,11 @@
         });
 
         window.addEventListener('popstate', (e) => {
-            // Se a URL deixou de ser #modal, fecha as telas pretas sobrepostas
             if (location.hash !== '#modal') {
                 document.getElementById('transacaoModal').style.display = 'none';
                 document.getElementById('membroModal').style.display = 'none';
             }
 
-            // Descobre pra qual aba o celular quer voltar
             let targetTab = 'tab-inicio';
             if (e.state && e.state.tab) {
                 targetTab = e.state.tab;
@@ -491,6 +493,8 @@
             const unsubCat = onSnapshot(qCat, (snapshot) => {
                 catEntradas = []; catSaidas = [];
                 let htmlAdmin = '';
+                let optionsFiltroCat = '<option value="todas">Todas as Categorias</option>';
+
                 snapshot.forEach((docSnap) => {
                     const c = docSnap.data();
                     if(c.tipo === 'entrada') catEntradas.push(c.nome); else catSaidas.push(c.nome);
@@ -499,10 +503,19 @@
                             <span>${c.nome} ${badge}</span>
                             <button onclick="excluirItem('categorias', '${docSnap.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fas fa-trash"></i></button>
                         </div>`;
+                    optionsFiltroCat += `<option value="${c.nome}">${c.nome}</option>`;
                 });
                 if(catEntradas.length === 0) catEntradas = ['Dízimo', 'Oferta'];
                 if(catSaidas.length === 0) catSaidas = ['Manutenção'];
+                
+                // Fallbacks de filtro de categoria se vazio
+                if (optionsFiltroCat === '<option value="todas">Todas as Categorias</option>') {
+                     optionsFiltroCat += `<option value="Dízimo">Dízimo</option><option value="Oferta">Oferta</option><option value="Manutenção">Manutenção</option>`;
+                }
+
                 document.getElementById('listaCategoriasAjustes').innerHTML = htmlAdmin || '<p style="font-size: 0.8rem; color: #777;">Nenhuma categoria criada.</p>';
+                document.getElementById('filtroLanCategoria').innerHTML = optionsFiltroCat;
+                atualizarAbaLancamentos();
             });
             unsubscribeListeners.push(unsubCat);
 
@@ -511,7 +524,7 @@
                 todosMembros = [];
                 
                 let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
-                let optionsFiltroMembros = '<option value="todos">Todos os Membros (Geral)</option>';
+                let optionsFiltroMembros = '<option value="todos">Todos os Membros</option>';
 
                 snapshot.forEach(docSnap => todosMembros.push({ id: docSnap.id, ...docSnap.data() }));
                 todosMembros.sort((a, b) => a.nome.localeCompare(b.nome));
@@ -522,7 +535,7 @@
                 });
                 
                 document.getElementById('formMembroRef').innerHTML = optionsMembros;
-                document.getElementById('filtroLanMembro').innerHTML = optionsFiltroMembros; // Preenche o novo filtro
+                document.getElementById('filtroLanMembro').innerHTML = optionsFiltroMembros; 
                 
                 atualizarAbaMembros();
                 atualizarAbaLancamentos();
@@ -682,6 +695,7 @@
             const fFilial = document.getElementById('filtroLanFilial').value;
             const fTipo = document.getElementById('filtroLanTipo').value;
             const fMembro = document.getElementById('filtroLanMembro').value;
+            const fCat = document.getElementById('filtroLanCategoria').value;
 
             let filtrados = todasTransacoes.filter(t => {
                 let ok = true;
@@ -690,6 +704,7 @@
                 if (fIni && t.data < fIni) ok = false;
                 if (fFim && t.data > fFim) ok = false;
                 if (fMembro !== 'todos' && t.membro !== fMembro) ok = false;
+                if (fCat !== 'todas' && t.categoria !== fCat) ok = false;
                 return ok;
             });
 
@@ -722,6 +737,7 @@
         document.getElementById('filtroLanFilial').addEventListener('change', atualizarAbaLancamentos);
         document.getElementById('filtroLanTipo').addEventListener('change', atualizarAbaLancamentos);
         document.getElementById('filtroLanMembro').addEventListener('change', atualizarAbaLancamentos);
+        document.getElementById('filtroLanCategoria').addEventListener('change', atualizarAbaLancamentos);
 
         document.getElementById('formAjustes').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -766,7 +782,6 @@
             document.getElementById('formMembro').reset();
             document.getElementById('formMembroId').value = ''; 
             
-            // Se o usuário apertou "Cancelar" ou "Salvar" e ainda está na URL de modal, simula o clique do voltar
             if(location.hash === '#modal') {
                 history.back(); 
             }

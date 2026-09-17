@@ -100,9 +100,9 @@
     <div class="block-screen" id="blockScreen" style="display: none;">
         <div class="auth-box" style="border-top: 5px solid var(--danger);">
             <i class="fas fa-lock" style="font-size: 3rem; color: var(--danger); margin-bottom: 15px;"></i>
-            <h2 style="margin-bottom: 10px;">Período de Teste Expirado</h2>
-            <p style="color: var(--text-light); margin-bottom: 20px; font-size: 0.95rem;">Seu acesso gratuito de 30 dias chegou ao fim. Para continuar gerenciando sua igreja sem interrupções, reative sua assinatura.</p>
-            <a href="https://kirvano.com/seu-link" target="_blank" class="btn" style="display: block; width: 100%; margin-bottom: 10px; background: var(--success); color: white; box-shadow: 0 4px 0 #27ae60;">Renovar Acesso Agora</a>
+            <h2 style="margin-bottom: 10px;">Acesso Expirado</h2>
+            <p style="color: var(--text-light); margin-bottom: 20px; font-size: 0.95rem;">Para continuar gerenciando sua igreja sem interrupções, renove sua assinatura agora.</p>
+            <a href="https://checkout.perfectpay.com.br/pay/PPU38CQG76Q?&src=renovacao" target="_blank" class="btn" style="display: block; width: 100%; margin-bottom: 10px; background: var(--success); color: white; box-shadow: 0 4px 0 #27ae60;">Renovar Acesso Agora</a>
             <button class="btn btn-danger" style="width: 100%; box-shadow: none;" onclick="fazerLogout()">Sair da Conta</button>
         </div>
     </div>
@@ -253,7 +253,14 @@
                 <div class="form-group"><label>Data</label><input type="date" id="formData" required></div>
                 <div class="form-group"><label>Filial</label><select id="formFilial" required></select></div>
                 <div class="form-group"><label>Categoria</label><select id="formCategoria" required></select></div>
-                <div class="form-group" id="grupoMembro" style="display:none;"><label>Dizimante / Membro</label><select id="formMembroRef"><option value="">Nenhum (Anônimo)</option></select></div>
+                
+                <!-- CAMPO DIZIMANTE / MEMBRO COM AUTOCOMPLETE E PESQUISA -->
+                <div class="form-group" id="grupoMembro" style="display:none;">
+                    <label><i class="fas fa-search"></i> Dizimante / Membro</label>
+                    <input type="text" id="formMembroRef" list="listaSugestaoMembros" placeholder="Digite para buscar ou deixe vazio..." autocomplete="off">
+                    <datalist id="listaSugestaoMembros"></datalist>
+                </div>
+                
                 <div class="form-group"><label>Valor (R$)</label><input type="number" id="formValor" step="0.01" required placeholder="Ex: 150.00"></div>
                 <div class="form-group"><label>Observação</label><input type="text" id="formObs" placeholder="Detalhe do lançamento"></div>
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
@@ -314,11 +321,22 @@
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const coresHex = ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6', '#3498db', '#9b59b6'];
 
+        // OBTÉM A DATA LOCAL ATUAL NO FORMATO YYYY-MM-DD
+        function obterDataLocalAtual() {
+            const d = new Date();
+            const ano = d.getFullYear();
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const dia = String(d.getDate()).padStart(2, '0');
+            return `${ano}-${mes}-${dia}`;
+        }
+
         const dateNow = new Date();
-        const firstDay = new Date(dateNow.getFullYear(), dateNow.getMonth(), 1).toISOString().split('T')[0];
-        const lastDay = new Date(dateNow.getFullYear(), dateNow.getMonth() + 1, 0).toISOString().split('T')[0];
+        const firstDay = `${dateNow.getFullYear()}-${String(dateNow.getMonth() + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(dateNow.getFullYear(), dateNow.getMonth() + 1, 0);
+        const lastDayStr = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+        
         document.getElementById('filtroLanInicio').value = firstDay;
-        document.getElementById('filtroLanFim').value = lastDay;
+        document.getElementById('filtroLanFim').value = lastDayStr;
 
         // ==========================================
         // GESTÃO DE HISTÓRICO (BOTÃO VOLTAR DO CELULAR)
@@ -359,7 +377,6 @@
             }
             abrirAba(targetTab, false);
         });
-
 
         function initCharts() {
             const ctxPie = document.getElementById('pieChart').getContext('2d');
@@ -508,7 +525,6 @@
                 if(catEntradas.length === 0) catEntradas = ['Dízimo', 'Oferta'];
                 if(catSaidas.length === 0) catSaidas = ['Manutenção'];
                 
-                // Fallbacks de filtro de categoria se vazio
                 if (optionsFiltroCat === '<option value="todas">Todas as Categorias</option>') {
                      optionsFiltroCat += `<option value="Dízimo">Dízimo</option><option value="Oferta">Oferta</option><option value="Manutenção">Manutenção</option>`;
                 }
@@ -522,19 +538,18 @@
             const qMembros = query(collection(db, "membros"), where("uid", "==", uid));
             const unsubMembros = onSnapshot(qMembros, (snapshot) => {
                 todosMembros = [];
-                
-                let optionsMembros = '<option value="">Nenhum (Anônimo)</option>';
+                let datalistMembros = '';
                 let optionsFiltroMembros = '<option value="todos">Todos os Membros</option>';
 
                 snapshot.forEach(docSnap => todosMembros.push({ id: docSnap.id, ...docSnap.data() }));
                 todosMembros.sort((a, b) => a.nome.localeCompare(b.nome));
 
                 todosMembros.forEach((m) => {
-                    optionsMembros += `<option value="${m.nome}">${m.nome}</option>`;
+                    datalistMembros += `<option value="${m.nome}">`;
                     optionsFiltroMembros += `<option value="${m.nome}">${m.nome}</option>`;
                 });
                 
-                document.getElementById('formMembroRef').innerHTML = optionsMembros;
+                document.getElementById('listaSugestaoMembros').innerHTML = datalistMembros;
                 document.getElementById('filtroLanMembro').innerHTML = optionsFiltroMembros; 
                 
                 atualizarAbaMembros();
@@ -791,7 +806,10 @@
             if(Object.keys(dicionarioFiliais).length === 0) return alert("Crie uma Filial na aba Ajustes primeiro.");
             
             history.pushState({ modal: true }, '', '#modal');
-            document.getElementById('formData').value = new Date().toISOString().split('T')[0];
+            
+            // PREENCHE A DATA ATUAL EXATA
+            document.getElementById('formData').value = obterDataLocalAtual();
+            
             document.getElementById('transacaoModal').style.display = 'flex';
             document.getElementById('formTipo').value = tipo;
             document.getElementById('modalTitle').innerText = tipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída';
@@ -801,7 +819,9 @@
             arrayCat.forEach(c => catHTML += `<option value="${c}">${c}</option>`);
             document.getElementById('formCategoria').innerHTML = catHTML;
 
+            // MOSTRA O CAMPO DE PESQUISA DE MEMBRO SE FOR ENTRADA
             document.getElementById('grupoMembro').style.display = tipo === 'entrada' ? 'block' : 'none';
+            document.getElementById('formMembroRef').value = '';
         }
 
         document.getElementById('formTransacao').addEventListener('submit', async (e) => {
@@ -819,7 +839,7 @@
             };
 
             if(transacaoObj.tipo === 'entrada') {
-                transacaoObj.membro = document.getElementById('formMembroRef').value;
+                transacaoObj.membro = document.getElementById('formMembroRef').value.trim();
             }
 
             await addDoc(collection(db, "transacoes"), transacaoObj);

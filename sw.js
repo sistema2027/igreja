@@ -1,4 +1,4 @@
-const CACHE_NAME = 'financeiro-igreja-limpeza-v18';
+const CACHE_NAME = 'financeiro-igreja-limpeza-v19';
 
 // Instala imediatamente
 self.addEventListener('install', (e) => {

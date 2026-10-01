@@ -129,6 +129,18 @@
                 <button class="time-btn" onclick="mudarTempo('ano', this)">Ano</button>
             </div>
 
+            <!-- NOVO FILTRO DE DATA NO DASHBOARD -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; background: var(--white); padding: 10px; border-radius: 10px; box-shadow: var(--shadow);">
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: bold; color: var(--text-light); display: block; margin-bottom: 5px;">Data Início</label>
+                    <input type="date" id="dashDataInicio" style="margin-bottom: 0; padding: 8px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; font-weight: bold; color: var(--text-light); display: block; margin-bottom: 5px;">Data Fim</label>
+                    <input type="date" id="dashDataFim" style="margin-bottom: 0; padding: 8px;">
+                </div>
+            </div>
+
             <div class="summary-cards">
                 <div class="card">
                     <h3>Saldo do Período</h3>
@@ -321,7 +333,6 @@
         const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const coresHex = ['#2ECC71', '#FFD700', '#E74C3C', '#95A5A6', '#3498db', '#9b59b6'];
 
-        // OBTÉM A DATA LOCAL ATUAL NO FORMATO YYYY-MM-DD
         function obterDataLocalAtual() {
             const d = new Date();
             const ano = d.getFullYear();
@@ -624,6 +635,7 @@
             document.getElementById('formMembroTel').value = telefone;
         }
 
+        // --- LÓGICA DO DASHBOARD COM O NOVO FILTRO DE DATA ---
         function atualizarDashboard() {
             const filtroFilial = document.getElementById('filialFilter').value;
             let dadosBase = filtroFilial === 'todas' ? todasTransacoes : todasTransacoes.filter(t => t.filial_id === filtroFilial);
@@ -641,6 +653,13 @@
                     return dataT.getMonth() === hoje.getMonth() && dataT.getFullYear() === hoje.getFullYear();
                 } else if (filtroTempoGlobal === 'ano') {
                     return dataT.getFullYear() === hoje.getFullYear();
+                } else if (filtroTempoGlobal === 'personalizado') {
+                    const dIni = document.getElementById('dashDataInicio').value;
+                    const dFim = document.getElementById('dashDataFim').value;
+                    let ok = true;
+                    if (dIni && t.data < dIni) ok = false;
+                    if (dFim && t.data > dFim) ok = false;
+                    return ok;
                 }
                 return true;
             });
@@ -686,6 +705,10 @@
                     const chave = dataT.toLocaleDateString('pt-BR', {month: 'short'});
                     mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
                 }
+                else if (filtroTempoGlobal === 'personalizado') {
+                    const chave = dataT.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'});
+                    mapaAgrupado[chave] = (mapaAgrupado[chave] || 0) + val;
+                }
             });
 
             let labelsOrdenadas = Object.keys(mapaAgrupado).sort();
@@ -700,8 +723,23 @@
             filtroTempoGlobal = periodo;
             document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
             btnElement.classList.add('active');
+            
+            // Limpa as datas personalizadas quando clica nos botões padrão
+            document.getElementById('dashDataInicio').value = '';
+            document.getElementById('dashDataFim').value = '';
+            
             atualizarDashboard();
         }
+        
+        // EVENTOS PARA DISPARAR O FILTRO PERSONALIZADO NO DASHBOARD
+        function acionarFiltroPersonalizado() {
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            filtroTempoGlobal = 'personalizado';
+            atualizarDashboard();
+        }
+        document.getElementById('dashDataInicio').addEventListener('change', acionarFiltroPersonalizado);
+        document.getElementById('dashDataFim').addEventListener('change', acionarFiltroPersonalizado);
+        
         document.getElementById('filialFilter').addEventListener('change', atualizarDashboard);
 
         function atualizarAbaLancamentos() {
@@ -807,7 +845,6 @@
             
             history.pushState({ modal: true }, '', '#modal');
             
-            // PREENCHE A DATA ATUAL EXATA
             document.getElementById('formData').value = obterDataLocalAtual();
             
             document.getElementById('transacaoModal').style.display = 'flex';
@@ -819,7 +856,6 @@
             arrayCat.forEach(c => catHTML += `<option value="${c}">${c}</option>`);
             document.getElementById('formCategoria').innerHTML = catHTML;
 
-            // MOSTRA O CAMPO DE PESQUISA DE MEMBRO SE FOR ENTRADA
             document.getElementById('grupoMembro').style.display = tipo === 'entrada' ? 'block' : 'none';
             document.getElementById('formMembroRef').value = '';
         }
@@ -877,9 +913,6 @@
             fecharModais();
         });
 
-        // ==========================================
-        // GERAÇÃO DE PDFs
-        // ==========================================
         window.gerarPDFTransacoes = function() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -901,6 +934,13 @@
                     return dataT.getMonth() === hoje.getMonth() && dataT.getFullYear() === hoje.getFullYear();
                 } else if (filtroTempoGlobal === 'ano') {
                     return dataT.getFullYear() === hoje.getFullYear();
+                } else if (filtroTempoGlobal === 'personalizado') {
+                    const dIni = document.getElementById('dashDataInicio').value;
+                    const dFim = document.getElementById('dashDataFim').value;
+                    let ok = true;
+                    if (dIni && t.data < dIni) ok = false;
+                    if (dFim && t.data > dFim) ok = false;
+                    return ok;
                 }
                 return true;
             });
@@ -935,7 +975,14 @@
             doc.text(tituloDoc, 14, 20);
             doc.setFontSize(10);
             doc.setFont(undefined, 'normal');
-            doc.text(`Período de filtro: ${filtroTempoGlobal.toUpperCase()} | Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
+            
+            let legendaFiltro = filtroTempoGlobal.toUpperCase();
+            if (filtroTempoGlobal === 'personalizado') {
+                const txtIni = document.getElementById('dashDataInicio').value.split('-').reverse().join('/');
+                const txtFim = document.getElementById('dashDataFim').value.split('-').reverse().join('/');
+                legendaFiltro = `${txtIni} a ${txtFim}`;
+            }
+            doc.text(`Período de filtro: ${legendaFiltro} | Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 26);
 
             const canvasPie = document.getElementById('pieChart');
             const imgPie = canvasPie.toDataURL('image/png', 1.0);

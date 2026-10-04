@@ -437,37 +437,51 @@
             signOut(auth);
         }
 
-        onAuthStateChanged(auth, async (user) => {
+       onAuthStateChanged(auth, (user) => {
             if (user) {
                 usuarioLogado = user;
                 document.getElementById('authScreen').style.display = 'none';
                 
                 const userDocRef = doc(db, "usuarios", user.uid);
-                const userSnap = await getDoc(userDocRef);
                 
-                if (!userSnap.exists()) {
-                    await setDoc(userDocRef, { dataCriacao: new Date().toISOString(), email: user.email, plano: 'trial' });
-                    iniciarSistemaPrivado(user.uid);
-                } else {
-                    const userData = userSnap.data();
-                    
-                    if (userData.plano === 'vitalicio') {
+                // MUDANÇA AQUI: onSnapshot faz o app "ouvir" o Firebase em TEMPO REAL
+                const unsubUser = onSnapshot(userDocRef, async (userSnap) => {
+                    if (!userSnap.exists()) {
+                        await setDoc(userDocRef, { dataCriacao: new Date().toISOString(), email: user.email, plano: 'trial' });
+                        document.getElementById('blockScreen').style.display = 'none';
                         iniciarSistemaPrivado(user.uid);
                     } else {
-                        const dataC = new Date(userData.dataCriacao);
-                        const hoje = new Date();
-                        const diffDias = Math.floor((hoje - dataC) / (1000 * 60 * 60 * 24));
+                        const userData = userSnap.data();
                         
-                        if (diffDias > 30) {
-                            document.getElementById('blockScreen').style.display = 'flex';
-                            document.getElementById('mainHeader').style.display = 'none';
-                            document.getElementById('mainContainer').style.display = 'none';
-                            document.getElementById('mainNav').style.display = 'none';
-                        } else {
+                        if (userData.plano === 'vitalicio') {
+                            document.getElementById('blockScreen').style.display = 'none';
                             iniciarSistemaPrivado(user.uid);
+                        } else {
+                            const dataC = new Date(userData.dataCriacao);
+                            const hoje = new Date();
+                            const diffDias = Math.floor((hoje - dataC) / (1000 * 60 * 60 * 24));
+                            
+                            // Previne que o app trave se você digitar uma data em formato errado no Firebase
+                            if (isNaN(diffDias)) {
+                                console.error("Formato de data inválido no Firebase. Use o padrão ISO.");
+                                return;
+                            }
+                            
+                            if (diffDias > 30) {
+                                document.getElementById('blockScreen').style.display = 'flex';
+                                document.getElementById('mainHeader').style.display = 'none';
+                                document.getElementById('mainContainer').style.display = 'none';
+                                document.getElementById('mainNav').style.display = 'none';
+                            } else {
+                                // Se pagou a PerfectPay, a data atualiza e essa linha desbloqueia a tela na hora!
+                                document.getElementById('blockScreen').style.display = 'none';
+                                iniciarSistemaPrivado(user.uid);
+                            }
                         }
                     }
-                }
+                });
+                unsubscribeListeners.push(unsubUser);
+                
             } else {
                 usuarioLogado = null;
                 unsubscribeListeners.forEach(unsub => unsub());
@@ -480,7 +494,6 @@
                 document.getElementById('mainNav').style.display = 'none';
             }
         });
-
         function iniciarSistemaPrivado(uid) {
             document.getElementById('mainHeader').style.display = 'flex';
             document.getElementById('mainContainer').style.display = 'block';
